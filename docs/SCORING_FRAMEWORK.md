@@ -1,35 +1,46 @@
-# Scoring Framework (v2): how The Next 10x Joiner applies LTV
+# Scoring Framework (v2.1): how The Next 10x Joiner applies LTV
 
 *Last updated Nov 10, 2026. The code lives in `lib/rubric.ts` (dimensions, prompt), `lib/scoring.ts` (math), `lib/filters.ts` (preferences) and `lib/facts.ts` (plain facts).*
 
 The design goal: **every number a user sees should trace back to a framework or case from LTV.** The evaluation answers the question the course keeps asking, *"which experiments has this company already won, and which risks are still open?"*, and adds the question a joiner has to answer: *"is joining at today's price a good deal for me?"*
 
-## 1. Three layers, not one score
+## 1. Two scores, plus red flags
 
-| Layer | Question | Output | Why it's separate |
-|---|---|---|---|
-| **Probability of Winning** | Will this company become a 10x company? | 0-100 from 10 weighted dimensions, minus red-flag penalties | This is the company's quality. Users can re-weight it to their risk appetite. |
-| **Joiner Upside** | Is joining *now, at this valuation* a good deal for a new hire? | 0-100 from 2 dimensions | A great company at a sky-high price can be a worse bet for a joiner than a good company at a fair price (Paley; valuation equation). Default scatter: Winning vs. Personal Fit, with Joiner Upside as an alternate axis. |
-| **Red flags** | Is there anything that should make me pause, whatever the scores say? | A list with severity; high = -10, medium = -4 (capped at -30) | LTV Module 5 (ethics and governance) is a hard filter rather than a trade-off. Rothenberg and Griffith's "one bad apple" readings show that strong-looking numbers can hide rot. |
+**The core distinction: a great company is not always a great deal.**
+- **Probability of Winning** asks *"Is this a great company?"* Will it become a 10x company, regardless of who joins or when? This is the investor's question, answered with the course's evaluation frameworks.
+- **Joiner Upside** asks *"Is joining it, now, a great deal for **me**?"* The same company can be a worse deal for a new hire if it is priced for perfection (little room for equity to multiply) or no longer gives new people scope and learning. It is the difference between a great company and a great stock *at today's price*.
+
+| | Low Joiner Upside | High Joiner Upside |
+|---|---|---|
+| **High Probability of Winning** | **Blue chip:** brand and stability, but equity is priced in and roles are narrower | **Pursue:** strong company with room to run |
+| **Low Probability of Winning** | **Pass** | **Lottery ticket:** big scope and cheap equity, but real risk |
+
+| Layer | Output | Notes |
+|---|---|---|
+| Probability of Winning | 0-100 from 12 weighted dimensions | Users can re-weight it to their risk appetite (presets + sliders) |
+| Joiner Upside | 0-100 from valuation headroom + career velocity | Kept as its own axis, never blended into Winning |
+| Red flags | A list with severity and sources | **The joiner's call.** Flags are always shown but never change a score silently. Users can opt in to a penalty (high -10, medium -4, capped at -30) or hide flagged companies. LTV Module 5: Rothenberg, Griffith's "one bad apple". |
 
 Plus **facts** (headcount, ARR, customer type, visa sponsorship, ...) that drive filters and personal fit. These are not scored.
 
-## 2. Probability of Winning: the 10 dimensions
+## 2. Probability of Winning: the 12 dimensions
 
-The weights follow the course's sequencing logic (*CVP fit → GTM fit → BM fit*, the master table): proof of customer love and a big market dominate, and everything else either protects the win or scales it.
+The weights follow the course's sequencing logic (*CVP fit → GTM fit → BM fit*, the master table): proof of customer love, momentum and a defensible position dominate, and everything else protects or scales the win.
 
 | # | Dimension | The one question | LTV anchors | Weight |
 |---|---|---|---|---|
-| 1 | **Market, wave & expansion path** | Is the market big, on a real wave, with a path from beachhead to more? | Rachleff's Law; TAM/SAM/SOM bottom-up; Vernal market curve; catching the wave; **bowling pins / lily pads** (C16, Squire, Sprout); Idea Maze | 15 |
-| 2 | **PMF level & customer love (HUNCH)** | How far along the PMF levels is it, and is it a must-have? | First Round Levels (Nascent→Extreme); Balfour's 4 checks; **HUNCH**; Sean Ellis 40%; toothbrush test; "usage leads, churn lags" | 20 |
-| 3 | **Moat** | If a funded competitor copied it tomorrow, what still protects it? | Helmer's 7 Powers; AI-era moats (memory, workflow, "hidden work"); jobs as moats; avoiding the GPT wrapper (Summer Health) | 10 |
-| 4 | **Competitive position** | Winning its category, or stuck in a red ocean? | Blue Ocean; Wiz "blue ocean inside the red"; XYZ Robotics | 5 |
-| 5 | **Business model & unit economics** | Does each customer make money, and does it improve with scale? | 10x club / 6-8x / 2-3x tiers; magical elements (NDR, GM); **LTV/CAC by cohort & channel** (Comun); "free pies"; Supernova vs Shooting Star; Fazeshift pricing ladder | 10 |
-| 6 | **GTM fit & ICP focus** | Does it know exactly who it sells to, and does the motion match the price? | **"Your ICP is your destiny"**; elephants/deer/mice; Sales Learning Curve; PLG trap (AllSpice, ElevenLabs); FDEs (Blitzy); Clay's ICP commitment | 10 |
-| 7 | **Gatekeeper & platform independence** *(new)* | Does a partner, platform, channel or model provider control its fate? | **"Beware gatekeepers"** (Sweet 16 #7); Comun/Unit; TurbineOne/the prime; Blitzy/SIs; AllSpice/procurement; rope-a-dope | 5 |
-| 8 | **Capital strategy & efficiency** | Funded well for its plan, and efficient rather than scaling prematurely? | Paley; **premature scaling** (Startup Genome; Chief "blitzflailing"); seedstrapping (BoldVoice); Investor-Market Fit; VC treadmill (XYZ); revenue per employee | 10 |
-| 9 | **Team, FMF & velocity** | Do the founders have an earned secret and the speed to out-execute? | Earned secrets (Tavel); founder-market fit and the FMF trap; **Founder Velocity score** (Wiz); "burn the boats"; Bardin | 10 |
-| 10 | **AI positioning** | Does AI make it stronger, or is it about to be disrupted? | Copilot vs autopilot (Sequoia); system of record → intelligence (a16z); Supernova vs Shooting Star; Summer Health | 5 |
+| 1 | **Market, wave & expansion path** | Is the market big, on a real wave, with a path from beachhead to more? | Rachleff's Law; TAM/SAM/SOM bottom-up; Vernal market curve; catching the wave; **bowling pins / lily pads** (C16, Squire, Sprout); Idea Maze | 10 |
+| 2 | **PMF level & customer love (HUNCH)** | How far along the PMF levels is it, and is it a must-have? | First Round Levels (Nascent→Extreme); Balfour's 4 checks; **HUNCH**; Sean Ellis 40%; toothbrush test; "usage leads, churn lags" | 15 |
+| 3 | **Growth momentum** *(new)* | How fast is it growing now, and is growth accelerating? | **T2D3** (Battery) and **Q2T3** (Bessemer); Supernova vs Shooting Star curves; Sales Learning Curve ("AI only scales what already works"); cohort expansion (Sprout) | 10 |
+| 4 | **Moat** | If a funded competitor copied it tomorrow, what still protects it? | Helmer's 7 Powers; AI-era moats (memory, workflow, "hidden work"); jobs as moats; avoiding the GPT wrapper (Summer Health) | 10 |
+| 5 | **Competitive position** | Winning its category, or stuck in a red ocean? | Blue Ocean; Wiz "blue ocean inside the red"; XYZ Robotics; Sierra vs Decagon | 10 |
+| 6 | **Business model & unit economics** | Does each customer make money, and does it improve with scale? | 10x club / 6-8x / 2-3x tiers; magical elements (NDR, GM); **LTV/CAC by cohort & channel** (Comun); "free pies"; Fazeshift pricing ladder | 8 |
+| 7 | **GTM fit & ICP focus** | Does it know exactly who it sells to, and does the motion match the price? | **"Your ICP is your destiny"**; elephants/deer/mice; Sales Learning Curve; PLG trap (AllSpice, ElevenLabs); FDEs (Blitzy); Clay | 7 |
+| 8 | **Gatekeeper & platform independence** | Does a partner, platform, channel or model provider control its fate? | **"Beware gatekeepers"** (Sweet 16 #7); Comun/Unit; TurbineOne/the prime; Blitzy/SIs; AllSpice/procurement; rope-a-dope | 5 |
+| 9 | **Key risks retired** *(new)* | Which big risks (tech, market, GTM, model, regulatory, financing) are behind it, and how bad is the biggest one left? | **C16 Bio** (retire the biggest risk first); "test selection is strategy"; Lean Startup; tough tech as "the sport of kings" (XYZ); Blank's "valley of death" | 5 |
+| 10 | **Capital strategy & efficiency** | Funded well for its plan, and efficient rather than scaling prematurely? | Paley; **premature scaling** (Startup Genome; Chief); seedstrapping (BoldVoice); Investor-Market Fit; VC treadmill (XYZ); revenue per employee | 5 |
+| 11 | **Team, FMF & velocity** | Do the founders have an earned secret and the speed to out-execute? | Earned secrets (Tavel); founder-market fit and the FMF trap; **Founder Velocity score** (Wiz); "burn the boats"; Bardin | 10 |
+| 12 | **AI positioning** | Does AI make it stronger, or is it about to be disrupted? | Copilot vs autopilot (Sequoia); system of record → intelligence (a16z); Supernova vs Shooting Star; Summer Health | 5 |
 
 ### What changed from v1, and why
 - **HUNCH merged into PMF.** In v1 they double-counted the same evidence. HUNCH is the *evidence* of PMF (Fred Wilson: hunch-driven early, data-driven later), so it now lives inside the PMF score, and PMF's weight rose from 15 to 20.
@@ -38,7 +49,9 @@ The weights follow the course's sequencing logic (*CVP fit → GTM fit → BM fi
 - **Market now includes the expansion path** (bowling pins / lily pads), the Module 3 TAM-expansion lesson.
 - **Business model now explicitly includes unit economics done right** (cohorts, channels, marginal CAC), from Comun and the Unit Economics Math slide.
 - **GTM now includes ICP focus.** Lesson #1 ("your ICP is your destiny") is the most-repeated idea in the course.
-- **Competition dropped from 10 to 5.** Wiz shows a red ocean can be won; moat and PMF capture most of what matters.
+- **Competition kept at 10** (team decision). Most of the list is in crowded AI categories, so position against rivals matters a lot to a joiner.
+- **New: Growth momentum.** PMF measures *level* (how far along); growth measures *rate* (how fast, and whether it's accelerating). T2D3 and Q2T3 are explicit course benchmarks, and two companies at the same ARR can be on very different trajectories.
+- **New: Key risks retired.** From C16: sequence experiments to retire the biggest risk first. This separates a deep-tech company with an unproven core technology from a SaaS company whose only open risk is execution, which matters for tough tech on the list (Nuro, Impulse Space, Mendaera).
 
 ### Considered and deliberately left out
 - **"Alignment" across CVP/GTM/BM/team/financing** (Module 3): it's real, but too hard to judge from outside the company. It shows up instead in rationales (e.g. a GTM motion that mismatches ACV).
@@ -54,8 +67,11 @@ The weights follow the course's sequencing logic (*CVP fit → GTM fit → BM fi
 
 The equity estimator (`lib/equity.ts`) puts numbers on valuation headroom. Its default exit scenarios now vary by stage: early companies bust more often but have more room to run, and late-stage companies the reverse.
 
-## 4. Red flags (Module 5)
-Types: governance or ethics, overstated metrics ("foie gras effect"), leadership exodus, layoffs or down round, legal or regulatory action, and customer or partner concentration. Each flag shows its source. A red flag lowers the score rather than removing the company: users should see it and decide for themselves.
+## 4. Red flags (Module 5): the joiner's call
+Types: governance or ethics, overstated metrics ("foie gras effect"), leadership exodus, layoffs or down round, legal or regulatory action, and customer or partner concentration. Each flag is shown with its source on the company card and page. **Scores are never adjusted silently.** Each user chooses one of:
+- **Show only** (default): see the flags and judge for yourself.
+- **Penalize**: subtract from your personal score (high -10, medium -4, capped at -30).
+- **Hide**: filter out companies with flags at or above a chosen severity.
 
 ## 5. Facts, filters and personal fit
 Plain attributes, gathered during evaluation. Fresh research overrides the Rocketship List, whose original values are kept in `list_snapshot`.
@@ -84,7 +100,7 @@ Plain attributes, gathered during evaluation. Fresh research overrides the Rocke
 | Builder / learner | "I want to learn from great founders" | Team, AI positioning, GTM |
 
 ## 6. Worked example: Sierra (Nov 2026, scored by hand with this rubric)
-Winning **86.9**, Joiner Upside **75**. Market 5, PMF 5, moat 3.5, competition 3.5, business model 3.5, GTM 4.5, independence 3.5 (sits on top of help desks and depends on model providers), capital 5, team 5, AI 5. Valuation headroom 3: about 40x ARR is priced for continued hypergrowth. Career velocity 5: headcount roughly 4x in a year. Equity: a 0.002% grant has an expected value of about $514K with late-stage defaults. The seed list was stale: it showed $635M raised and 488 employees, against $1.585B and about 700.
+Winning **85.5**, Joiner Upside **75**, which puts it in the "Pursue" quadrant but near "Blue chip". Market 5, PMF 5, growth 5 (ARR doubled in 5 months and is accelerating), moat 3.5, competition 3.5, business model 3.5, GTM 4.5, independence 3.5 (sits on top of help desks and depends on model providers), risks retired 4.5, capital 5, team 5, AI 5. Valuation headroom 3: about 40x ARR is priced for continued hypergrowth. Career velocity 5: headcount roughly 4x in a year. Equity: a 0.002% grant has an expected value of about $514K with late-stage defaults. The seed list was stale: it showed $635M raised and 488 employees, against $1.585B and about 700.
 
 ## 7. Calibration (PRD hypothesis H3)
 `data/calibration.csv` holds 20 companies chosen to stress-test the rubric. They include a head-to-head pair (Sierra vs. Decagon), two LTV companies (Clay, Blitzy), tough tech (Impulse Space, Nuro), sparse-data companies (Mendaera, Bedrock Robotics) and a data-gap case (Postman). Each teammate fills in gut scores *before* seeing the engine's. `npm run calibrate` reports the Spearman rank correlation (target ≥ 0.5) and the five biggest disagreements. Those disagreements are the best material for "What we learned".
@@ -92,4 +108,4 @@ Winning **86.9**, Joiner Upside **75**. Market 5, PMF 5, moat 3.5, competition 3
 ## 8. Open questions for the team
 1. Should Joiner Upside feed the personal score, or stay a separate axis? (v2: separate.)
 2. Are the red-flag penalties (high -10, medium -4) about right?
-3. Should competition (5) and AI positioning (5) carry more weight for an AI-heavy list?
+3. Should AI positioning (5) carry more weight for an AI-heavy list?

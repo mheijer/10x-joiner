@@ -4,7 +4,7 @@ Read `PRD.md` before building any feature. It defines the user (HBS joiners), th
 
 ## Architecture
 - Next.js App Router + TypeScript, deployed on Vercel. Supabase for Postgres, anonymous auth and row-level security (`supabase/schema.sql`).
-- `lib/rubric.ts` is the **single source of truth** for the 10 LTV dimensions, default weights, the evaluation prompt and output parsing. Change scoring here only.
+- `lib/rubric.ts` is the **single source of truth** for the 12 Probability-of-Winning dimensions, 2 Joiner Upside dimensions, default weights, the evaluation prompt and output parsing. Change scoring here only.
 - `lib/scoring.ts`: pure math (Probability of Winning, Joiner Upside, red-flag penalties, presets, personal score). Keep it pure.
 - `lib/filters.ts` (hard preference filters), `lib/facts.ts` (facts → columns; fresh beats list), `lib/stats.ts` (calibration math): all pure.
 - Why each dimension exists and which LTV framework it maps to: `docs/SCORING_FRAMEWORK.md`. Update it whenever the rubric changes.

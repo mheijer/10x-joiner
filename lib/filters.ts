@@ -18,6 +18,7 @@ export interface Preferences {
   require_open_role?: boolean; // only show companies hiring for target functions
   min_total_funding_usd?: number | null;
   risk_appetite?: "upside_seeker" | "balanced" | "safety_first" | "builder";
+  hide_red_flags_at?: "medium" | "high" | null; // joiner's choice: hide companies with flags at/above this severity
 }
 
 export interface FilterableCompany {
@@ -32,6 +33,7 @@ export interface FilterableCompany {
   business_type?: string | null;
   total_funding_usd?: number | null;
   open_roles_by_function?: Partial<Record<JobFunction, number>>;
+  red_flags?: { severity: "low" | "medium" | "high"; detail: string }[] | null;
 }
 
 export interface FilterResult {
@@ -84,6 +86,11 @@ export function applyPreferences(c: FilterableCompany, p: Preferences): FilterRe
     if (!c.open_roles_by_function) unknowns.push("open roles");
     else if (!p.target_functions.some((f) => (c.open_roles_by_function![f] ?? 0) > 0))
       dealbreakers.push("No open roles in your target functions");
+  }
+  if (p.hide_red_flags_at && c.red_flags?.length) {
+    const rank = { low: 0, medium: 1, high: 2 } as const;
+    const worst = c.red_flags.find((f) => rank[f.severity] >= rank[p.hide_red_flags_at!]);
+    if (worst) dealbreakers.push(`Red flag: ${worst.detail}`);
   }
   return { passes: dealbreakers.length === 0, dealbreakers, unknowns };
 }

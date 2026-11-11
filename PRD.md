@@ -68,7 +68,7 @@ Testers: 10–15 HBS classmates, a 15-minute session each, in Nov 25–Dec 1 wee
 ### 7.4 Company page
 - Header: name, website, HQ, founded, headcount, sector, stage, total funding.
 - **Personal fit**: score + 2–3 bullet reasons (and one "watch-out").
-- **LTV scorecard**: 10 dimensions, each with score 1–5, confidence, 1–2 sentence rationale and source links. Composite = "probability of winning".
+- **LTV scorecard**: 12 dimensions, each with score 1–5, confidence, 1–2 sentence rationale and source links. Composite = "probability of winning".
 - **Joiner Upside** (valuation headroom, career velocity) and any **red flags** with sources.
 - **Key facts**: ARR estimate, revenue per employee, headcount growth, customer type, GTM motion, pricing model, work policy, visa sponsorship. Each is marked fresh or estimated, with an as-of date.
 - **Funding**: rounds table (date, round, amount, post-money; estimates flagged).
@@ -82,10 +82,10 @@ Testers: 10–15 HBS classmates, a 15-minute session each, in Nov 25–Dec 1 wee
 ## 8. Scoring model (v2)
 Full rationale, course anchors and the worked Sierra example: **[docs/SCORING_FRAMEWORK.md](docs/SCORING_FRAMEWORK.md)**.
 
-- **Probability of Winning (0-100):** 10 dimensions scored 1-5 with confidence: Market & expansion path 15, PMF & customer love (HUNCH) 20, Moat 10, Competitive position 5, Business model & unit economics 10, GTM fit & ICP focus 10, Gatekeeper independence 5, Capital strategy & efficiency 10, Team & velocity 10, AI positioning 5. Low-confidence scores are pulled toward the midpoint. Red flags subtract (high -10, medium -4, capped at -30).
-- **Joiner Upside (0-100):** valuation headroom + career velocity. Is joining *at today's price* a good deal?
-- **Red flags:** governance and ethics, overstated metrics, exodus, layoffs or down round, legal, concentration (LTV Module 5).
-- **Personal score** (what the list is ranked by) = `blend × Winning (with the user's weights) + (1 − blend) × profile fit`, blend 0.5 by default.
+- **Probability of Winning (0-100), "Is this a great company?":** 12 dimensions scored 1-5 with confidence: Market & expansion path 10, PMF & customer love (HUNCH) 15, Growth momentum 10, Moat 10, Competitive position 10, Business model & unit economics 8, GTM fit & ICP focus 7, Gatekeeper independence 5, Key risks retired 5, Capital strategy & efficiency 5, Team & velocity 10, AI positioning 5. Low-confidence scores are pulled toward the midpoint.
+- **Joiner Upside (0-100), "Is joining it now a great deal for me?":** valuation headroom + career velocity. Quadrants: Pursue / Blue chip / Lottery ticket / Pass.
+- **Red flags (LTV Module 5), the joiner's call:** always shown with sources; never silently applied. Users choose show only (default), penalize, or hide.
+- **Personal score** (what the list is ranked by) = `blend × Winning (with the user's weights) + (1 − blend) × profile fit` (− red-flag penalty only if opted in), blend 0.5 by default.
   - Weights start from a preset (Balanced, Upside seeker, Safety first, Builder) suggested from the profile, then sliders.
   - Hard preferences (stage, size, growth, location, work policy, visa, sector, customer/business type, open roles in my function) are **filters**, not scores; missing data shows as "unverified".
 

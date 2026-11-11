@@ -3,19 +3,21 @@
 // Rationale for every dimension and its course anchors: docs/SCORING_FRAMEWORK.md
 //
 // Three layers:
-//   1. "winning" dimensions  → Probability of Winning (0-100), weighted, user-adjustable weights
-//   2. "joiner" dimensions   → Joiner Upside (0-100): is joining *at today's price* a good deal?
-//   3. red flags             → governance / ethics / distress penalties (LTV Module 5)
+//   1. "winning" dimensions  → Probability of Winning (0-100): "Is this a great company?" (12 weighted, user-adjustable)
+//   2. "joiner" dimensions   → Joiner Upside (0-100): "Is joining it, now, a great deal for me?"
+//   3. red flags             → shown to the user; penalizing them is the user's choice (LTV Module 5)
 // Plus plain facts (headcount, ARR, customer type, ...) used for filters and personal fit.
 
 export type WinningKey =
   | "market"
   | "pmf"
+  | "growth"
   | "moat"
   | "competition"
   | "business_model"
   | "gtm"
   | "independence"
+  | "risk_retirement"
   | "capital"
   | "team"
   | "ai_positioning";
@@ -41,7 +43,7 @@ export const DIMENSIONS: Dimension[] = [
     question: "Is the market big, riding a real wave, and is there a credible path from beachhead to bigger markets?",
     courseAnchor:
       "Rachleff's Law (Andreessen); TAM/SAM/SOM bottom-up; Vernal market curve; catching the wave; bowling pins / lily pads (C16, Squire, Sprout); Idea Maze",
-    defaultWeight: 15,
+    defaultWeight: 10,
     scale: {
       1: "Small or shrinking market, no tailwind, no visible expansion path",
       3: "Multi-$B market growing steadily; plausible adjacent expansion",
@@ -55,11 +57,25 @@ export const DIMENSIONS: Dimension[] = [
     question: "How far along the PMF levels is it, and do customers treat it as a hair-on-fire must-have?",
     courseAnchor:
       "First Round Levels of PMF (Nascent → Extreme); Balfour's 4 checks; HUNCH (hair on fire, usage, NPS, churn, high WTP); Sean Ellis 40%; Page toothbrush test; 'usage leads, churn lags'",
-    defaultWeight: 20,
+    defaultWeight: 15,
     scale: {
       1: "Nascent: few paying customers; weak usage or retention signals",
       3: "Developing/Strong: ~$5-25M ARR (or equivalent), real pain, healthy retention",
       5: "Extreme: $25M+ ARR or hypergrowth; customers buy faster than it can deliver; must-have",
+    },
+  },
+  {
+    key: "growth",
+    group: "winning",
+    label: "Growth momentum",
+    question: "How fast is the business growing right now, and is growth accelerating or slowing?",
+    courseAnchor:
+      "T2D3 (Battery) and Q2T3 (Bessemer State of AI); Supernova vs Shooting Star growth curves; Sales Learning Curve (AI compresses it, but 'only scales what already works'); First Round 'Demand' and 'Efficiency' axes; cohort expansion (Sprout NDR >150%)",
+    defaultWeight: 10,
+    scale: {
+      1: "Flat or shrinking; growth decelerating sharply",
+      3: "On a T2D3 pace (~3x/year early, ~2x later) with steady momentum",
+      5: "Ahead of Q2T3 / Supernova pace and still accelerating",
     },
   },
   {
@@ -82,7 +98,7 @@ export const DIMENSIONS: Dimension[] = [
     label: "Competitive position (blue vs red ocean)",
     question: "Is it winning its category, or fighting in a bloody red ocean without a wedge?",
     courseAnchor: "Blue Ocean Strategy (Kim & Mauborgne); Wiz 'blue ocean inside the red ocean'; XYZ Robotics (commoditized red ocean)",
-    defaultWeight: 5,
+    defaultWeight: 10,
     scale: {
       1: "Red ocean vs well-funded incumbents, no clear wedge",
       3: "Crowded but clearly differentiated; top-3 position",
@@ -96,7 +112,7 @@ export const DIMENSIONS: Dimension[] = [
     question: "Does each customer make money, and does the model get better with scale?",
     courseAnchor:
       "Business model tiers (10x club / 6-8x / 2-3x); magical elements (NDR >100%, high GM, network effects); LTV/CAC done right by cohort & channel (Comun: 'average numbers are trash'); 'free pies' (PMF isn't complete until BM works); Supernova vs Shooting Star margins (Bessemer); Fazeshift pricing ladder",
-    defaultWeight: 10,
+    defaultWeight: 8,
     scale: {
       1: "Low/negative margins, one-time or ad revenue, worsens with scale (2-3x tier)",
       3: "Recurring revenue, moderate margins, decent payback (6-8x tier)",
@@ -110,7 +126,7 @@ export const DIMENSIONS: Dimension[] = [
     question: "Does it know exactly who it sells to, and does its sales motion match its price point?",
     courseAnchor:
       "'Your ICP is your destiny' / narrow beachhead; ACV vs sales model (elephants, deer, mice); Sales Learning Curve phases; PLG trap (Bussgang & Jay; AllSpice, ElevenLabs); forward-deployed engineers (Blitzy); Clay's ICP commitment",
-    defaultWeight: 10,
+    defaultWeight: 7,
     scale: {
       1: "Fuzzy ICP; motion mismatched to ACV; no repeatable channel",
       3: "Clear ICP; motion fits ACV; early repeatability",
@@ -132,13 +148,27 @@ export const DIMENSIONS: Dimension[] = [
     },
   },
   {
+    key: "risk_retirement",
+    group: "winning",
+    label: "Key risks retired",
+    question: "Which of the big risks (technology, market, GTM, business model, regulatory, financing) are already behind it, and how dangerous is the biggest one left?",
+    courseAnchor:
+      "C16 Bio (sequence experiments to retire the biggest risk first: science, techno-economic, PMF, scaling, financing); 'test selection is strategy'; Lean Startup (validate every key hypothesis before scaling); tough tech as 'the sport of kings' (XYZ Robotics); Steve Blank's defense 'valley of death'",
+    defaultWeight: 5,
+    scale: {
+      1: "Existential risks still open (unproven technology, regulatory approval, or no business model yet)",
+      3: "Core technology and demand proven; scaling, business model or regulatory risk remains",
+      5: "Technology, demand, GTM and economics all proven; remaining risks are ordinary execution",
+    },
+  },
+  {
     key: "capital",
     group: "winning",
     label: "Capital strategy & efficiency",
     question: "Is it funded well for its plan, and is it efficient rather than scaling prematurely?",
     courseAnchor:
       "Paley 'VC is a hell of a drug' (value per dollar raised); premature scaling (Startup Genome ~70%; Chief 'blitzflailing'); seedstrapping (BoldVoice: $10M ARR with 7 people); Investor-Market Fit; VC treadmill (XYZ Robotics); revenue per employee",
-    defaultWeight: 10,
+    defaultWeight: 5,
     scale: {
       1: "Struggling to raise, flat/down rounds, short runway, or burning far ahead of traction",
       3: "Raised recently at a sensible step-up; adequate runway; spend roughly matches traction",
@@ -343,17 +373,17 @@ export function buildEvaluationPrompt(c: CompanyInput): string {
 ${known}
 
 ## Research (use web search)
-Find: latest funding rounds and valuation; ARR/revenue and growth; headcount and its growth over the last year;
+Find: latest funding rounds and valuation; ARR/revenue and its growth rate over time (is it accelerating?); headcount and its growth over the last year;
 customers and who buys (enterprise/SMB/consumer); pricing model and sales motion; competitors; founders' backgrounds;
 key dependencies (platforms, partners, channels, model providers); any red flags (lawsuits, regulatory action,
 layoffs, down rounds, leadership departures, disputed metrics); work policy and office locations;
 whether it sponsors work visas (e.g. H-1B filings); and the careers page. Note whether the careers page is on
 Greenhouse (boards.greenhouse.io/<slug> or job-boards.greenhouse.io/<slug>), Lever (jobs.lever.co/<slug>) or Ashby (jobs.ashbyhq.com/<slug>).
 
-## Probability of Winning: score each 1-5
+## Probability of Winning ("is this a great company?"): score each 1-5
 ${rubric(WINNING_DIMENSIONS)}
 
-## Joiner Upside: score each 1-5
+## Joiner Upside ("is joining now a great deal for a new hire?"): score each 1-5
 ${rubric(JOINER_DIMENSIONS)}
 
 ## Output
