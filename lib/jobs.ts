@@ -58,6 +58,43 @@ export async function fetchJobs(provider: AtsProvider, slug: string): Promise<Jo
   return null;
 }
 
+export type JobFunction =
+  | "chief_of_staff"
+  | "product"
+  | "bizops"
+  | "fde"
+  | "gtm"
+  | "marketing"
+  | "engineering"
+  | "other";
+
+// Order matters: the first match wins (e.g. "Product Marketing Manager" → marketing, not product).
+const FUNCTION_RULES: [JobFunction, RegExp][] = [
+  ["chief_of_staff", /chief of staff|\bcos\b|founder'?s? associate|ceo office/i],
+  ["marketing", /marketing|brand|communications|\bpr\b|content|growth marketing|demand gen/i],
+  ["fde", /forward[- ]deployed|\bfde\b|solutions? (engineer|architect)|deployment strategist|implementation/i],
+  ["product", /product manager|\bpm\b|product lead|head of product|product owner|\bapm\b|group product/i],
+  ["bizops", /strategy|operations|bizops|biz ops|business operations|strategic finance|corporate development|corp ?dev|\bfp&a\b|analytics lead|special projects|partnerships/i],
+  ["gtm", /account executive|\bae\b|sales|business development|\bbdr\b|\bsdr\b|customer success|account manager|revenue|go[- ]to[- ]market|\bgtm\b/i],
+  ["engineering", /engineer|developer|scientist|research|infrastructure|security|devops|sre\b|ml\b|machine learning|data/i],
+];
+
+/** Map a job title to an MBA-relevant function bucket. */
+export function classifyRole(title: string): JobFunction {
+  for (const [fn, re] of FUNCTION_RULES) if (re.test(title)) return fn;
+  return "other";
+}
+
+/** Counts of open roles by function, e.g. { product: 3, gtm: 12, ... }. */
+export function countByFunction(jobs: { title: string }[]): Partial<Record<JobFunction, number>> {
+  const out: Partial<Record<JobFunction, number>> = {};
+  for (const j of jobs) {
+    const f = classifyRole(j.title);
+    out[f] = (out[f] ?? 0) + 1;
+  }
+  return out;
+}
+
 /** Candidate board slugs from a company name / domain, e.g. "Fireworks AI", "fireworks.ai". */
 export function slugCandidates(name: string, domain?: string | null): string[] {
   const base = name.toLowerCase().replace(/\(.*?\)/g, "").trim();

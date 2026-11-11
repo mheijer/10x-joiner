@@ -5,6 +5,8 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { evaluateCompany } from "@/lib/evaluate";
 import { normalizeUsLocation, geocodeUs } from "@/lib/geocode";
+import { factsToCompanyUpdate } from "@/lib/facts";
+import { joinerUpside } from "@/lib/scoring";
 
 export const maxDuration = 300; // evaluations with web search can take 1-2 minutes
 
@@ -39,18 +41,17 @@ export async function POST(req: Request) {
   try {
     const { result, composite, model } = await evaluateCompany({ name, website, hq_location: hq });
     await db.from("evaluations").insert({
-      company_id: company.id, scores: result.scores, composite, summary: result.summary, model, status: "done",
+      company_id: company.id,
+      scores: result.scores,
+      composite,
+      joiner_upside: joinerUpside(result.scores),
+      red_flags: result.red_flags,
+      conflicts: result.conflicts,
+      summary: result.summary,
+      model,
+      status: "done",
     });
-    const f = result.facts ?? {};
-    await db.from("companies").update({
-      stage: f.stage ?? null,
-      headcount: f.headcount_estimate ?? null,
-      latest_post_money_usd: f.latest_post_money_usd ?? null,
-      careers_url: f.careers_url ?? null,
-      ats_provider: f.ats?.provider ?? null,
-      ats_slug: f.ats?.slug ?? null,
-      hq_city: hq ?? f.hq_city ?? null,
-    }).eq("id", company.id);
+    await db.from("companies").update(factsToCompanyUpdate(result.facts ?? {}, { hq_city: hq })).eq("id", company.id);
     return NextResponse.json({ company_id: company.id, composite });
   } catch (e: any) {
     await db.from("evaluations").insert({ company_id: company.id, scores: {}, status: "error", summary: e.message });

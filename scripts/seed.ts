@@ -4,6 +4,7 @@
 //   npm run seed -- --evaluate --limit 25        # LTV-evaluate companies not yet evaluated
 //   npm run seed -- --evaluate --only "Sierra"   # (re-)evaluate one company
 //   npm run seed -- --evaluate --limit 5 --dry-run   # no database: writes JSON to data/eval_samples/
+//   npm run seed -- --evaluate --dry-run --calibration  # evaluate the 20 calibration companies, then: npm run calibrate
 //   npm run seed -- --jobs                       # refresh live job listings
 //
 // Flags: --force (re-evaluate even if done), --concurrency 3
@@ -15,7 +16,9 @@ import path from "node:path";
 import { parse } from "csv-parse/sync";
 import { evaluateCompany } from "../lib/evaluate.ts";
 import { normalizeUsLocation, geocodeUs } from "../lib/geocode.ts";
-import { discoverJobs } from "../lib/jobs.ts";
+import { discoverJobs, classifyRole } from "../lib/jobs.ts";
+import { factsToCompanyUpdate } from "../lib/facts.ts";
+import { joinerUpside } from "../lib/scoring.ts";
 import type { AtsProvider } from "../lib/jobs.ts";
 import type { CompanyInput } from "../lib/rubric.ts";
 
@@ -92,6 +95,7 @@ async function load() {
       founded_year: num(r.founded_year),
       headcount: num(r.employees),
       total_funding_usd: num(r.total_funding_musd) != null ? num(r.total_funding_musd)! * 1e6 : null,
+      list_snapshot: { employees: num(r.employees), total_funding_musd: num(r.total_funding_musd), hq_location: r.hq_location, source: "Rocketship List 2026" },
       is_seed: true,
     });
     if (error) console.error(r.name, error.message);
@@ -132,22 +136,15 @@ async function evaluate() {
         company_id: c.id,
         scores: result.scores,
         composite,
+        joiner_upside: joinerUpside(result.scores),
+        red_flags: result.red_flags,
+        conflicts: result.conflicts,
         summary: result.summary,
         model,
         status: "done",
       });
-      await db
-        .from("companies")
-        .update({
-          stage: f.stage ?? c.stage,
-          headcount: c.headcount ?? f.headcount_estimate ?? null,
-          ats_provider: f.ats?.provider ?? c.ats_provider,
-          ats_slug: f.ats?.slug ?? c.ats_slug,
-          careers_url: f.careers_url ?? c.careers_url,
-          latest_post_money_usd: f.latest_post_money_usd ?? null,
-          post_money_is_estimate: f.post_money_is_estimate ?? true,
-        })
-        .eq("id", c.id);
+      // Fresh research overrides the (often stale) list values; originals stay in list_snapshot.
+      await db.from("companies").update(factsToCompanyUpdate(f, c)).eq("id", c.id);
       if (f.funding_rounds?.length) {
         await db.from("funding_rounds").delete().eq("company_id", c.id);
         await db.from("funding_rounds").insert(
@@ -176,14 +173,19 @@ async function evaluateDry() {
   fs.mkdirSync(outDir, { recursive: true });
   let rows = loadCsv();
   if (ONLY) rows = rows.filter((r) => r.name.toLowerCase() === ONLY.toLowerCase());
-  rows = rows.slice(0, LIMIT === Infinity ? 5 : LIMIT);
+  if (flag("--calibration")) {
+    const cal: { name: string }[] = parse(fs.readFileSync("data/calibration.csv", "utf8"), { columns: true });
+    const names = new Set(cal.map((c) => c.name.toLowerCase()));
+    rows = rows.filter((r) => names.has(r.name.toLowerCase()));
+  }
+  rows = rows.slice(0, LIMIT === Infinity ? (flag("--calibration") ? rows.length : 5) : LIMIT);
   console.log(`Dry run: evaluating ${rows.length} companies -> data/eval_samples/`);
   await pool(rows, CONCURRENCY, async (r) => {
     try {
       const out = await evaluateCompany({ ...r, website: r.website });
       const file = path.join(outDir, r.name.replace(/[^a-z0-9]+/gi, "_") + ".json");
       fs.writeFileSync(file, JSON.stringify(out, null, 2));
-      console.log(`${r.name}: ${out.composite}`);
+      console.log(`${r.name}: winning ${out.composite} | joiner upside ${joinerUpside(out.result.scores)} | red flags ${out.result.red_flags.length}`);
     } catch (e: any) {
       console.error(`${r.name}: FAILED ${e.message}`);
     }
@@ -204,7 +206,7 @@ async function jobs() {
     if (!hit) return;
     found++;
     await db.from("jobs").delete().eq("company_id", c.id);
-    await db.from("jobs").insert(hit.jobs.map((j) => ({ company_id: c.id, ...j })));
+    await db.from("jobs").insert(hit.jobs.map((j) => ({ company_id: c.id, ...j, job_function: classifyRole(j.title) })));
     await db.from("companies").update({ ats_provider: hit.provider, ats_slug: hit.slug }).eq("id", c.id);
   });
   console.log(`Jobs: found boards for ${found}/${list.length} companies.`);

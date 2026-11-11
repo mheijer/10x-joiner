@@ -19,6 +19,17 @@ create table if not exists companies (
   total_funding_usd      numeric,
   latest_post_money_usd  numeric,
   post_money_is_estimate boolean default true,
+  arr_estimate_usd       numeric,
+  headcount_growth_pct   numeric,     -- last 12 months
+  work_policy   text,          -- onsite | hybrid | remote | unknown
+  customer_type text[],        -- enterprise | mid_market | smb | consumer | government (market curve)
+  business_type text,          -- b2b | b2c | b2b2c | marketplace
+  gtm_motion    text[],        -- sales_led | plg | fde | channel | paid_acquisition
+  pricing_model text[],        -- seat | usage | outcome | subscription | transaction | ads | hardware
+  sponsors_visas text default 'unknown', -- yes | likely | unknown | no
+  facts         jsonb,         -- full facts object from the latest evaluation
+  facts_as_of   text,          -- YYYY-MM of freshest source
+  list_snapshot jsonb,         -- original Rocketship List values (kept for provenance; list data can be stale)
   careers_url   text,
   ats_provider  text,          -- greenhouse | lever | ashby | null
   ats_slug      text,          -- board token, e.g. "anthropic"
@@ -34,7 +45,11 @@ create table if not exists evaluations (
   company_id   uuid not null references companies(id) on delete cascade,
   version      int not null default 1,
   scores       jsonb not null,   -- { dimension_key: {score, confidence, rationale, sources[]} }
-  composite    numeric,          -- "probability of winning" 0-100
+  composite    numeric,          -- Probability of Winning 0-100 (default weights, red flags applied)
+  joiner_upside numeric,         -- Joiner Upside 0-100
+  red_flags    jsonb,            -- [{type, severity, detail, source}]
+  conflicts    jsonb,            -- where sources disagreed
+  rubric_version text default 'v2',
   summary      text,
   model        text,
   status       text not null default 'done', -- pending | done | error
@@ -61,6 +76,7 @@ create table if not exists jobs (
   location    text,
   url         text,
   source      text,
+  job_function text,           -- product | bizops | gtm | chief_of_staff | fde | marketing | engineering | other
   fetched_at  timestamptz not null default now()
 );
 
@@ -113,7 +129,7 @@ create policy "fit_own" on fit_scores for all
 
 -- Convenience view: each company with its latest evaluation
 create or replace view company_latest as
-select c.*, e.scores, e.composite, e.summary, e.status as eval_status, e.created_at as evaluated_at
+select c.*, e.scores, e.composite, e.joiner_upside, e.red_flags, e.summary, e.status as eval_status, e.created_at as evaluated_at
 from companies c
 left join lateral (
   select * from evaluations e where e.company_id = c.id order by created_at desc limit 1

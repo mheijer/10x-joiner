@@ -14,7 +14,7 @@ export async function evaluateCompany(
     try {
       const text = await ask({ system: SYSTEM_PROMPT, prompt, webSearch: true, maxSearches: 6, maxTokens: 5000 });
       const result = parseEvaluation(text);
-      return { result, composite: composite(result.scores), model: MODEL };
+      return { result, composite: composite(result.scores, undefined, result.red_flags), model: MODEL };
     } catch (e) {
       lastErr = e;
     }

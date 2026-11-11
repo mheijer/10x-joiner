@@ -1,21 +1,16 @@
 // Personalization: (1) suggest personal weights from a profile, (2) score profile fit per company.
 import { ask } from "./claude.ts";
-import { DEFAULT_WEIGHTS, DIMENSIONS } from "./rubric.ts";
+import { DEFAULT_WEIGHTS, WINNING_DIMENSIONS } from "./rubric.ts";
 import type { EvaluationResult } from "./rubric.ts";
 import { normalizeWeights } from "./scoring.ts";
 import type { Weights } from "./scoring.ts";
 
+import type { Preferences } from "./filters.ts";
+
 export interface Profile {
   background_text: string; // resume / cover letter
   looking_for: string;
-  preferences?: {
-    stages?: string[];
-    headcount?: [number, number];
-    sectors?: string[];
-    locations?: string[];
-    remote_ok?: boolean;
-    target_function?: string; // e.g. "Product", "BizOps", "GTM", "Chief of Staff"
-  };
+  preferences?: Preferences; // structured chips; hard filters live in lib/filters.ts
 }
 
 const SYSTEM = `You help HBS MBA students decide which startups to join, using LTV course frameworks.
@@ -25,11 +20,11 @@ Be concrete and brief. Return only JSON.`;
 export async function suggestWeights(
   p: Profile,
 ): Promise<{ weights: Weights; reasons: Partial<Record<keyof Weights, string>> }> {
-  const dims = DIMENSIONS.map((d) => `"${d.key}" (${d.label}): default ${d.defaultWeight}`).join("\n");
+  const dims = WINNING_DIMENSIONS.map((d) => `"${d.key}" (${d.label}): default ${d.defaultWeight}`).join("\n");
   const text = await ask({
     system: SYSTEM,
     prompt: `A student describes themselves and what they want in a startup. Starting from the default weights,
-adjust the weights (they will be rescaled to sum to 100) to reflect what THIS person cares about.
+adjust the weights (they will be rescaled to sum to 100). Presets exist: upside_seeker, safety_first, builder; you may start from one to reflect what THIS person cares about.
 Change only weights you have a clear reason to change.
 
 Dimensions and defaults:
@@ -52,22 +47,44 @@ Return JSON: {"weights": {"<key>": number, ...all 10 keys}, "reasons": {"<key>":
 /** Profile fit 0-100 for one company, with reasons and a watch-out. */
 export async function scoreFit(
   p: Profile,
-  company: { name: string; description?: string | null; hq?: string | null; headcount?: number | null; stage?: string | null },
+  company: {
+    name: string;
+    description?: string | null;
+    hq?: string | null;
+    headcount?: number | null;
+    headcount_growth_pct?: number | null;
+    stage?: string | null;
+    work_policy?: string | null;
+    sponsors_visas?: string | null;
+    customer_type?: string[] | null;
+    business_type?: string | null;
+    joiner_upside?: number | null;
+  },
   evaluation: Pick<EvaluationResult, "summary"> | null,
   openRoles: string[],
+  openRolesByFunction?: Record<string, number>,
 ): Promise<{ score: number; reasons: string[]; watch_out: string }> {
   const text = await ask({
     system: SYSTEM,
-    prompt: `Score how well this company fits this student (0-100). Consider: open roles matching their target function,
-stage and size match, sector interest, location, and their learning/brand/upside goals. Penalize explicit dealbreakers heavily.
+    prompt: `Score how well this company fits this student (0-100). Consider, in order:
+1) open roles matching their target functions and seniority, and whether their background is credible for them;
+2) stage, size and growth vs what they want (risk appetite, scope, learning);
+3) sector, customer type (enterprise vs consumer) and business type they're drawn to, including mission;
+4) location, work policy and visa needs;
+5) their upside goals vs the company's Joiner Upside.
+Hard dealbreakers are filtered separately; here, judge fit among companies that pass.
 
 Student background (excerpt): ${p.background_text.slice(0, 3000)}
 Looking for: ${p.looking_for}
 Preferences: ${JSON.stringify(p.preferences ?? {})}
 
 Company: ${company.name} — ${company.description ?? ""}
-HQ: ${company.hq ?? "unknown"} | Headcount: ${company.headcount ?? "unknown"} | Stage: ${company.stage ?? "unknown"}
+HQ: ${company.hq ?? "unknown"} | Work policy: ${company.work_policy ?? "unknown"} | Visa sponsorship: ${company.sponsors_visas ?? "unknown"}
+Headcount: ${company.headcount ?? "unknown"} (12-mo growth: ${company.headcount_growth_pct ?? "unknown"}%) | Stage: ${company.stage ?? "unknown"}
+Sells to: ${company.customer_type?.join(", ") ?? "unknown"} | Business type: ${company.business_type ?? "unknown"}
+Joiner Upside score: ${company.joiner_upside ?? "n/a"}/100
 Analyst summary: ${evaluation?.summary ?? "n/a"}
+Open roles by function: ${openRolesByFunction ? JSON.stringify(openRolesByFunction) : "unknown"}
 Open roles (sample): ${openRoles.slice(0, 25).join("; ") || "unknown"}
 
 Return JSON: {"score": number, "reasons": ["2-3 short bullets"], "watch_out": "one short line"}`,

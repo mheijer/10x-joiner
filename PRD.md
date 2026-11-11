@@ -57,18 +57,20 @@ Testers: 10–15 HBS classmates, a 15-minute session each, in Nov 25–Dec 1 wee
 
 ### 7.2 Explore (home): map + list
 - Zillow-style split view: **map** (clustered pins; color = personal score) + **ranked list** (name, one-liner, personal score, stage, HQ, # open roles).
-- Filters: search text, metro / state, sector, stage, headcount, total funding, has open roles, min personal score.
+- Filters: search text, metro / state, sector, stage, headcount, headcount growth, total funding, customer type, business type, work policy, visa sponsorship, open roles in my function, min personal score, hide red-flagged.
 - The map viewport filters the list ("search this area"). Global and remote companies are still listed.
 
 ### 7.3 Scatter view
 - Default axes: **X = Probability of winning (composite)**, **Y = Personal fit**, **bubble size = total funding**, color = sector.
-- Axis dropdowns: any LTV dimension, personal score, funding, headcount, founded year.
+- Axis dropdowns: any LTV dimension, Joiner Upside, personal score, funding, ARR, revenue per employee, headcount, headcount growth, founded year.
 - Quadrant labels (e.g. top-right "Pursue"). Clicking a bubble opens the company. It shares filters with Explore.
 
 ### 7.4 Company page
 - Header: name, website, HQ, founded, headcount, sector, stage, total funding.
 - **Personal fit**: score + 2–3 bullet reasons (and one "watch-out").
 - **LTV scorecard**: 10 dimensions, each with score 1–5, confidence, 1–2 sentence rationale and source links. Composite = "probability of winning".
+- **Joiner Upside** (valuation headroom, career velocity) and any **red flags** with sources.
+- **Key facts**: ARR estimate, revenue per employee, headcount growth, customer type, GTM motion, pricing model, work policy, visa sponsorship. Each is marked fresh or estimated, with an as-of date.
 - **Funding**: rounds table (date, round, amount, post-money; estimates flagged).
 - **Open roles**: live listings (title, team, location, link), highlighting roles matching the user's target function.
 - **Equity estimator** (§9).
@@ -77,29 +79,15 @@ Testers: 10–15 HBS classmates, a 15-minute session each, in Nov 25–Dec 1 wee
 ### 7.5 Add a company
 - Input: name + website (optional HQ). Dedupe against the seed list. Show progress; on failure, show partial data rather than nothing.
 
-## 8. Scoring model
+## 8. Scoring model (v2)
+Full rationale, course anchors and the worked Sierra example: **[docs/SCORING_FRAMEWORK.md](docs/SCORING_FRAMEWORK.md)**.
 
-**Company quality (same for every user):** 10 LTV dimensions scored 1–5 by the evaluation engine.
-
-| Dimension | Course anchor | Default weight |
-|---|---|---|
-| Market size and wave | TAM, market curve, Rachleff's Law | 15 |
-| PMF level | First Round levels, Balfour | 15 |
-| Moat | 7 Powers, AI-era moats, Jobs as moat | 10 |
-| Competitive intensity (blue vs. red ocean) | Blue Ocean, Wiz | 10 |
-| HUNCH | Hair on fire, Usage, NPS, Churn, High WTP | 10 |
-| Business model quality | 10x club tiers, NDR, GM | 10 |
-| Capital and momentum | Round step-ups, runway, Paley | 10 |
-| Team / founder-market fit | Earned secret, founder velocity | 10 |
-| GTM fit | Elephants/deer/mice, Sales Learning Curve, PLG trap | 5 |
-| AI positioning | Copilot vs. autopilot, Supernova vs. Shooting Star | 5 |
-
-**Probability of winning (composite)** = default-weighted average, scaled 0–100. This is the *team's* LTV view and doesn't change per user.
-
-**Personal score** (what the list is ranked by) =
-`0.5 × (company quality re-weighted with the user's weights) + 0.5 × profile fit`
-- *Profile fit* (0–100): an LLM compares the user's background and goals to the company (role availability for their function, stage and size match, sector interest, location, learning and brand goals), plus hard-filter penalties for explicit dealbreakers.
-- The 50/50 blend is itself a user setting ("How much do you care about the company winning vs. fitting you?").
+- **Probability of Winning (0-100):** 10 dimensions scored 1-5 with confidence: Market & expansion path 15, PMF & customer love (HUNCH) 20, Moat 10, Competitive position 5, Business model & unit economics 10, GTM fit & ICP focus 10, Gatekeeper independence 5, Capital strategy & efficiency 10, Team & velocity 10, AI positioning 5. Low-confidence scores are pulled toward the midpoint. Red flags subtract (high -10, medium -4, capped at -30).
+- **Joiner Upside (0-100):** valuation headroom + career velocity. Is joining *at today's price* a good deal?
+- **Red flags:** governance and ethics, overstated metrics, exodus, layoffs or down round, legal, concentration (LTV Module 5).
+- **Personal score** (what the list is ranked by) = `blend × Winning (with the user's weights) + (1 − blend) × profile fit`, blend 0.5 by default.
+  - Weights start from a preset (Balanced, Upside seeker, Safety first, Builder) suggested from the profile, then sliders.
+  - Hard preferences (stage, size, growth, location, work policy, visa, sector, customer/business type, open roles in my function) are **filters**, not scores; missing data shows as "unverified".
 
 ## 9. Equity estimator
 - Inputs (pre-filled, editable): current post-money (latest known or estimated), offer as % or shares + strike, future dilution per round (default 15–20%) and number of rounds to exit, exit scenarios (bear / base / bull values with probabilities), liquidation preference overhang (simple: total preferred raised).
