@@ -17,5 +17,7 @@ Read `PRD.md` before building any feature. It defines the user (HBS joiners), th
 - Never import server-only modules (`claude`, `evaluate`, `fit`, `supabase-admin`) into client components.
 - Every number shown in the UI must show its source or be flagged as an estimate.
 - Data only needs to be directionally correct. Prefer shipping over perfecting sources.
+- Never use the Rocketship List's numbers (headcount, funding): the list is out of date. It only identifies companies.
+- When sources disagree on total funding, use the larger figure (it's usually the more recent).
 - Log notable AI tool usage in `AI_USAGE.md` (required for the course brief).
 - Work on a branch and open a PR. Never commit `.env.local`.

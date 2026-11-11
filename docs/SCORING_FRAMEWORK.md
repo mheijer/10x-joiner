@@ -74,7 +74,9 @@ Types: governance or ethics, overstated metrics ("foie gras effect"), leadership
 - **Hide**: filter out companies with flags at or above a chosen severity.
 
 ## 5. Facts, filters and personal fit
-Plain attributes, gathered during evaluation. Fresh research overrides the Rocketship List, whose original values are kept in `list_snapshot`.
+Plain attributes, gathered during evaluation. **Team rules:**
+- **The Rocketship List is out of date, so its numbers are never used.** The list only tells us *which* companies to evaluate (name, website, HQ, description). Its headcount and funding figures are not shown to the AI, not displayed and not scored; they're kept in `list_snapshot` for reference only.
+- **When sources disagree on total funding, take the larger figure.** Cumulative funding only grows, so the larger number usually reflects more recent rounds. The code also takes the larger of the reported total and the sum of the rounds found. Debt and grants are excluded when clearly labeled.
 
 | Fact | Why it matters to a joiner | Course link | Used as |
 |---|---|---|---|
@@ -104,7 +106,7 @@ Plain attributes, gathered during evaluation. Fresh research overrides the Rocke
 | | Sierra | CloudZero | Mendaera |
 |---|---|---|---|
 | What | AI customer-service agents | Cloud & AI cost management (Boston) | Handheld medical robot for needle procedures |
-| Stage / raised | Series E, $1.585B | Series C, >$85M per company (aggregators say $56M-$119M) | Series B, ~$97M |
+| Stage / raised | Series E, $1.585B | Series C, ~$119M (largest credible figure; the company said ">$85M" in May 2025) | Series B, ~$97M |
 | Traction | $400M+ ARR, doubling in ~5 months | ~$42M ARR (Sacra est.), 4 years of triple-digit growth | FDA-cleared Jul 2025; limited launch; no revenue disclosed |
 | **Probability of Winning** | **85.5** | **60.2** | **47.5** |
 | **Joiner Upside** | **75** | **53.8** | **61.3** |
@@ -116,8 +118,8 @@ Plain attributes, gathered during evaluation. Fresh research overrides the Rocke
 | Jobs | Ashby; PM, Agent Development (MBA a plus) | Ashby; 2 PM roles in Boston/SF | Not on Greenhouse/Lever/Ashby → careers-page link |
 
 ### What the walkthroughs taught us (and what we changed)
-1. **The seed list is stale or wrong in places.** Sierra: 488 employees and $635M listed vs ~700 and $1.585B. Mendaera: 4 employees listed vs ~20. → Fresh research now overrides the list.
-2. **Sources disagree a lot for smaller companies.** CloudZero's total funding ranges from $56M to $119M across sites, and one research estimate ("757% YoY") doesn't match its own ARR history. → Source hierarchy, a `conflicts` field, and an instruction to distrust internally inconsistent figures.
+1. **The seed list is stale or wrong in places.** Sierra: 488 employees and $635M listed vs ~700 and $1.585B. Mendaera: 4 employees listed vs ~20. → The list's numbers are no longer used at all; it only identifies companies.
+2. **Sources disagree a lot for smaller companies.** CloudZero's total funding ranges from $56M to $119M across sites, and one research estimate ("757% YoY") doesn't match its own ARR history. → Source hierarchy, a `conflicts` field, an instruction to distrust internally inconsistent figures, and a rule to take the **larger** funding total (it's usually the more recent).
 3. **Stage labels mislead.** Mendaera is "Series B" but pre-revenue, so mid-stage exit odds made its equity look better than Sierra's. → Stage is now judged by traction (PMF score) as well as by round name: the course's "TechCrunch false positive" lesson.
 4. **Exit multiples were double-counting success.** They were applied on top of a valuation that already assumed future rounds. → Exits are now multiples of *today's* valuation.
 5. **"Low confidence" was rewarding unknowns.** Pulling uncertain scores toward 3 lifted a pre-revenue company's growth from 1.5 to 2.1. → The prompt now treats evidence of absence (no revenue yet) as evidence; low confidence is only for genuinely unknown.

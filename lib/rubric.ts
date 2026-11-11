@@ -320,9 +320,9 @@ export interface CompanyInput {
   industry?: string | null;
   hq_location?: string | null;
   founded_year?: number | string | null;
-  employees?: number | string | null;
-  total_funding_musd?: number | string | null;
 }
+// Note: the Rocketship List's employee and funding numbers are deliberately NOT passed to the model.
+// The list is out of date and anchors the model on wrong figures; it is used only to identify the company.
 
 export const SYSTEM_PROMPT = `You are a venture analyst trained in Harvard Business School's "Launching Tech Ventures" (LTV) course
 (Profs. Jeff Bussgang and Allison Mnookin). You evaluate startups for MBA students deciding which companies to join.
@@ -346,7 +346,10 @@ Confidence means "how sure am I of this score", not "how much data exists":
 - Evidence of absence is evidence. A company that is pre-revenue or just starting commercial launch scores 1-2 on PMF
   and growth with MEDIUM or HIGH confidence. Do not mark it low-confidence just because there is no revenue to report.
 - Use LOW confidence only when you genuinely could not find enough information to judge either way.
-- The provided list data may be stale. Always prefer fresher figures you find, and note the date (as_of).`;
+- Total funding: when sources report different cumulative totals, use the LARGEST credible figure. Totals only grow
+  over time, so the larger number usually reflects more recent rounds. Note the smaller figures in "conflicts".
+  (Exception: exclude debt facilities and grants if a source clearly labels them as such.)
+- Research every number yourself and note the date of your freshest source (as_of).`;
 
 export function buildEvaluationPrompt(c: CompanyInput): string {
   const known = [
@@ -355,8 +358,6 @@ export function buildEvaluationPrompt(c: CompanyInput): string {
     c.industry && `Industry: ${c.industry}`,
     c.hq_location && `HQ: ${c.hq_location}`,
     c.founded_year && `Founded: ${c.founded_year}`,
-    c.employees && `Employees (from list, may be stale): ${c.employees}`,
-    c.total_funding_musd && `Total funding (from list, may be stale): $${c.total_funding_musd}M`,
     c.description && `Description: ${c.description}`,
   ]
     .filter(Boolean)
@@ -375,7 +376,7 @@ export function buildEvaluationPrompt(c: CompanyInput): string {
 
   return `Evaluate this startup for an MBA student considering joining it.
 
-## What we already know (from Prof. Bussgang's Rocketship List; may be stale)
+## Company identity (from the Rocketship List; use only to identify the company, research every fact yourself)
 ${known}
 
 ## Research (use web search)

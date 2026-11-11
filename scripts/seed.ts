@@ -93,8 +93,7 @@ async function load() {
       lat: geo?.lat ?? null,
       lng: geo?.lng ?? null,
       founded_year: num(r.founded_year),
-      headcount: num(r.employees),
-      total_funding_usd: num(r.total_funding_musd) != null ? num(r.total_funding_musd)! * 1e6 : null,
+      // List headcount/funding are out of date: kept for reference only, never shown or scored.
       list_snapshot: { employees: num(r.employees), total_funding_musd: num(r.total_funding_musd), hq_location: r.hq_location, source: "Rocketship List 2026" },
       is_seed: true,
     });
@@ -126,8 +125,6 @@ async function evaluate() {
       industry: c.sector,
       hq_location: c.hq_city,
       founded_year: c.founded_year,
-      employees: c.headcount,
-      total_funding_musd: c.total_funding_usd ? c.total_funding_usd / 1e6 : null,
     };
     try {
       const { result, composite, model } = await evaluateCompany(input);
@@ -143,7 +140,7 @@ async function evaluate() {
         model,
         status: "done",
       });
-      // Fresh research overrides the (often stale) list values; originals stay in list_snapshot.
+      // All numbers come from fresh research; list values live only in list_snapshot.
       await db.from("companies").update(factsToCompanyUpdate(f, c)).eq("id", c.id);
       if (f.funding_rounds?.length) {
         await db.from("funding_rounds").delete().eq("company_id", c.id);
@@ -182,7 +179,10 @@ async function evaluateDry() {
   console.log(`Dry run: evaluating ${rows.length} companies -> data/eval_samples/`);
   await pool(rows, CONCURRENCY, async (r) => {
     try {
-      const out = await evaluateCompany({ ...r, website: r.website });
+      const out = await evaluateCompany({
+        name: r.name, website: r.website, description: r.description, industry: r.industry,
+        hq_location: r.hq_location, founded_year: r.founded_year,
+      });
       const file = path.join(outDir, r.name.replace(/[^a-z0-9]+/gi, "_") + ".json");
       fs.writeFileSync(file, JSON.stringify(out, null, 2));
       console.log(`${r.name}: winning ${out.composite} | joiner upside ${joinerUpside(out.result.scores)} | red flags ${out.result.red_flags.length}`);
