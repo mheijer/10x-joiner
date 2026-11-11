@@ -1,4 +1,4 @@
-# Startup Scout
+# The Next 10x Joiner
 
 A map-first startup explorer for HBS joiners. It scores the US companies on Prof. Bussgang's Rocketship List 2026 with LTV frameworks, ranks them against each user's profile, and estimates what joining could be worth.
 

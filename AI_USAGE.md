@@ -5,3 +5,4 @@ The LTV final project requires precise disclosure of which AI tools we used and 
 | Date | Who | Tool | What we used it for | Quality notes |
 |---|---|---|---|---|
 | 2026-11-10 | Marcus | Claude (Opus) | Read the assignment; drafted the build plan and PRD; converted the seed list; wrote the DB schema; created this repo | |
+| 2026-11-10 | Marcus | Claude (Opus) | Wrote the LTV scoring rubric, scoring math, equity estimator, job-board fetchers, geocoder, evaluation engine, seed pipeline and evaluate API; unit-checked the pure logic | Untested end to end until API and Supabase keys are added |

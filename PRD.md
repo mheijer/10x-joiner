@@ -1,4 +1,4 @@
-# Startup Scout — PRD (v1)
+# The Next 10x Joiner — PRD (v1)
 *LTV Final Project · Fall 2026 · Owner: Marcus Heijer (+ team) · Last updated Nov 10, 2026*
 *Read this before building anything. Architecture and timeline live in the build plan; this doc owns **what** and **why**.*
 

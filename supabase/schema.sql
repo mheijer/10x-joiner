@@ -1,4 +1,4 @@
--- Startup Scout schema. Paste into Supabase SQL Editor and run once.
+-- The Next 10x Joiner schema. Paste into Supabase SQL Editor and run once.
 -- Also enable: Authentication -> Sign In / Providers -> "Allow anonymous sign-ins".
 
 create extension if not exists "pgcrypto";
@@ -16,6 +16,10 @@ create table if not exists companies (
   hq_city       text,
   lat           double precision,
   lng           double precision,
+  total_funding_usd      numeric,
+  latest_post_money_usd  numeric,
+  post_money_is_estimate boolean default true,
+  careers_url   text,
   ats_provider  text,          -- greenhouse | lever | ashby | null
   ats_slug      text,          -- board token, e.g. "anthropic"
   is_seed       boolean not null default false,
