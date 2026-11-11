@@ -338,8 +338,14 @@ Source rules (most to least trusted):
   2. Tier-1 press: TechCrunch, Bloomberg, Reuters, WSJ, The Information, CNBC, Axios, Forbes.
   3. Research firms: Sacra, PitchBook/Crunchbase news, CB Insights.
   4. Aggregators and SEO/AI-generated pages: use only if nothing better exists, and mark figures as estimates.
-- When sources disagree (e.g. round names, valuations, ARR), prefer the most recent primary or tier-1 source,
-  and record the disagreement in "conflicts".
+- When sources disagree (e.g. round names, valuations, ARR, total funding), prefer the most recent primary or tier-1 source,
+  and record the disagreement in "conflicts". Treat figures that are internally inconsistent (e.g. a growth rate that
+  doesn't match the stated ARR history) as unreliable.
+
+Confidence means "how sure am I of this score", not "how much data exists":
+- Evidence of absence is evidence. A company that is pre-revenue or just starting commercial launch scores 1-2 on PMF
+  and growth with MEDIUM or HIGH confidence. Do not mark it low-confidence just because there is no revenue to report.
+- Use LOW confidence only when you genuinely could not find enough information to judge either way.
 - The provided list data may be stale. Always prefer fresher figures you find, and note the date (as_of).`;
 
 export function buildEvaluationPrompt(c: CompanyInput): string {

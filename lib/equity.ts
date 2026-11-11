@@ -169,42 +169,52 @@ export function defaultFutureRounds(stage?: string | null): FutureRound[] {
 
 export type StageBucket = "early" | "mid" | "late";
 
-export function stageBucket(stage?: string | null): StageBucket {
+export function stageBucket(stage?: string | null, pmfScore?: number | null): StageBucket {
   const s = (stage ?? "").toLowerCase();
-  if (/pre-seed|seed|series a\b/.test(s)) return "early";
-  if (/series [d-z]\b|growth|public|acquired|late/.test(s)) return "late";
-  return "mid"; // Series B/C, or unknown
+  let bucket: StageBucket = /pre-seed|seed|series a\b/.test(s)
+    ? "early"
+    : /series [d-z]\b|growth|public|acquired|late/.test(s)
+      ? "late"
+      : "mid"; // Series B/C, or unknown
+  // Judge stage by traction, not by the round's name (First Round PMF levels; the "TechCrunch false positive").
+  // A pre-revenue Series B carries early-stage risk, so it gets early-stage odds.
+  if (pmfScore != null && pmfScore < 2.5) bucket = "early";
+  return bucket;
 }
 
-// Exit outcomes by stage, as multiples of the post-money after the last projected round.
-// Early-stage companies fail more often but have more room to run; late-stage companies are
-// less likely to bust but have less headroom. Illustrative defaults: users can edit everything.
+// Exit outcomes by stage, as multiples of TODAY's post-money valuation. (Anchoring on today, not on the
+// post-money after projected future rounds, avoids double-counting success: those rounds already assume it.)
+// Early-stage companies fail more often but have more room to run; late-stage companies are the reverse.
+// Expected company-value multiple: early ≈ 2.0x, mid ≈ 2.2x, late ≈ 1.6x. Illustrative defaults; users edit everything.
 const SCENARIO_TABLE: Record<StageBucket, { label: string; multiple: number; probability: number }[]> = {
   early: [
     { label: "Bust", multiple: 0, probability: 0.55 },
-    { label: "Modest", multiple: 0.5, probability: 0.25 },
-    { label: "Base", multiple: 2, probability: 0.14 },
-    { label: "Rocketship", multiple: 10, probability: 0.06 },
+    { label: "Modest", multiple: 1, probability: 0.25 },
+    { label: "Base", multiple: 4, probability: 0.14 },
+    { label: "Rocketship", multiple: 20, probability: 0.06 },
   ],
   mid: [
     { label: "Bust", multiple: 0, probability: 0.3 },
-    { label: "Modest", multiple: 0.6, probability: 0.3 },
-    { label: "Base", multiple: 1.5, probability: 0.3 },
-    { label: "Rocketship", multiple: 5, probability: 0.1 },
+    { label: "Modest", multiple: 1, probability: 0.3 },
+    { label: "Base", multiple: 3, probability: 0.3 },
+    { label: "Rocketship", multiple: 10, probability: 0.1 },
   ],
   late: [
     { label: "Bust", multiple: 0, probability: 0.1 },
-    { label: "Modest", multiple: 0.7, probability: 0.35 },
-    { label: "Base", multiple: 1.5, probability: 0.43 },
-    { label: "Rocketship", multiple: 3, probability: 0.12 },
+    { label: "Modest", multiple: 0.8, probability: 0.35 },
+    { label: "Base", multiple: 2, probability: 0.43 },
+    { label: "Rocketship", multiple: 4, probability: 0.12 },
   ],
 };
 
-/** Exit scenarios anchored on the post-money of the last projected round, tuned to stage. */
-export function defaultScenarios(anchorPostMoneyUsd: number, stage?: string | null): ExitScenario[] {
-  return SCENARIO_TABLE[stageBucket(stage)].map((s) => ({
+/**
+ * Default exit scenarios as multiples of today's post-money, tuned to stage.
+ * Pass the company's PMF score (1-5) so stage is judged by traction, not just the round name.
+ */
+export function defaultScenarios(currentPostMoneyUsd: number, stage?: string | null, pmfScore?: number | null): ExitScenario[] {
+  return SCENARIO_TABLE[stageBucket(stage, pmfScore)].map((s) => ({
     label: s.label,
-    exitValueUsd: anchorPostMoneyUsd * s.multiple,
+    exitValueUsd: currentPostMoneyUsd * s.multiple,
     probability: s.probability,
   }));
 }

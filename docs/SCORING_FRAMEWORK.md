@@ -65,7 +65,7 @@ The weights follow the course's sequencing logic (*CVP fit → GTM fit → BM fi
 | **Valuation headroom** | At today's price, is there room for a joiner's equity to multiply? | Valuation equation (TAM × penetration × profitability × multiple); BM tiers set the multiple; Paley (big valuations raise the exit bar); Chief ("we raised so much because we could"); Supernova fragility |
 | **Career velocity** | Will a new joiner get scope, learning and a résumé-making experience? | 10x Joiner workshop (own metrics, optimize for learning, ride the AI wave); org stages (Hoffman); "avoid titles early"; FDE and GTM-engineer roles; talent density |
 
-The equity estimator (`lib/equity.ts`) puts numbers on valuation headroom. Its default exit scenarios now vary by stage: early companies bust more often but have more room to run, and late-stage companies the reverse.
+The equity estimator (`lib/equity.ts`) puts numbers on valuation headroom. Default exit scenarios are multiples of *today's* valuation and vary by stage, where stage is judged by traction (PMF score) as well as by round name. Early companies bust more often but have more room to run; late-stage companies are the reverse.
 
 ## 4. Red flags (Module 5): the joiner's call
 Types: governance or ethics, overstated metrics ("foie gras effect"), leadership exodus, layoffs or down round, legal or regulatory action, and customer or partner concentration. Each flag is shown with its source on the company card and page. **Scores are never adjusted silently.** Each user chooses one of:
@@ -99,8 +99,30 @@ Plain attributes, gathered during evaluation. Fresh research overrides the Rocke
 | Safety first | "I need stability / visa / I'm paying off loans" | PMF, business model, capital |
 | Builder / learner | "I want to learn from great founders" | Team, AI positioning, GTM |
 
-## 6. Worked example: Sierra (Nov 2026, scored by hand with this rubric)
-Winning **85.5**, Joiner Upside **75**, which puts it in the "Pursue" quadrant but near "Blue chip". Market 5, PMF 5, growth 5 (ARR doubled in 5 months and is accelerating), moat 3.5, competition 3.5, business model 3.5, GTM 4.5, independence 3.5 (sits on top of help desks and depends on model providers), risks retired 4.5, capital 5, team 5, AI 5. Valuation headroom 3: about 40x ARR is priced for continued hypergrowth. Career velocity 5: headcount roughly 4x in a year. Equity: a 0.002% grant has an expected value of about $514K with late-stage defaults. The seed list was stale: it showed $635M raised and 488 employees, against $1.585B and about 700.
+## 6. Worked examples (Nov 2026, scored by hand with this rubric)
+
+| | Sierra | CloudZero | Mendaera |
+|---|---|---|---|
+| What | AI customer-service agents | Cloud & AI cost management (Boston) | Handheld medical robot for needle procedures |
+| Stage / raised | Series E, $1.585B | Series C, >$85M per company (aggregators say $56M-$119M) | Series B, ~$97M |
+| Traction | $400M+ ARR, doubling in ~5 months | ~$42M ARR (Sacra est.), 4 years of triple-digit growth | FDA-cleared Jul 2025; limited launch; no revenue disclosed |
+| **Probability of Winning** | **85.5** | **60.2** | **47.5** |
+| **Joiner Upside** | **75** | **53.8** | **61.3** |
+| Quadrant | Pursue (near Blue chip) | Middle of the pack | Lottery ticket |
+| Weakest dimensions | Moat, competition, business model (3.5) | Competition 2.5 (Vantage, Finout, IBM, Broadcom, AWS's own tools); independence 2.5 (depends on AWS billing data while AWS competes) | PMF and growth 1.5 (pre-revenue); business model 2.5 (unknown) |
+| Strongest | Market, PMF, growth, capital, team | Business model 4 (priced on cloud spend, so revenue grows with customers); risks retired 4 | Competition 4 (new category); team 4 (Fred Moll-backed, robotics CCO) |
+| Example grant | 0.002% ($316K on paper) | 0.05% ($250K on paper, est. $500M valuation) | 0.1% ($320K on paper, est. $320M valuation) |
+| Equity expected value | $476K | $460K | $415K, but a 55% chance of $0, and a "modest" exit also pays $0 because investors' preferences absorb it |
+| Jobs | Ashby; PM, Agent Development (MBA a plus) | Ashby; 2 PM roles in Boston/SF | Not on Greenhouse/Lever/Ashby → careers-page link |
+
+### What the walkthroughs taught us (and what we changed)
+1. **The seed list is stale or wrong in places.** Sierra: 488 employees and $635M listed vs ~700 and $1.585B. Mendaera: 4 employees listed vs ~20. → Fresh research now overrides the list.
+2. **Sources disagree a lot for smaller companies.** CloudZero's total funding ranges from $56M to $119M across sites, and one research estimate ("757% YoY") doesn't match its own ARR history. → Source hierarchy, a `conflicts` field, and an instruction to distrust internally inconsistent figures.
+3. **Stage labels mislead.** Mendaera is "Series B" but pre-revenue, so mid-stage exit odds made its equity look better than Sierra's. → Stage is now judged by traction (PMF score) as well as by round name: the course's "TechCrunch false positive" lesson.
+4. **Exit multiples were double-counting success.** They were applied on top of a valuation that already assumed future rounds. → Exits are now multiples of *today's* valuation.
+5. **"Low confidence" was rewarding unknowns.** Pulling uncertain scores toward 3 lifted a pre-revenue company's growth from 1.5 to 2.1. → The prompt now treats evidence of absence (no revenue yet) as evidence; low confidence is only for genuinely unknown.
+6. **Job coverage has gaps.** Smaller medtech/hardware companies often don't use Greenhouse, Lever or Ashby. → They fall back to a careers-page link. Coverage is worth measuring after the first batch.
+7. **Valuations are usually undisclosed below late stage.** Both CloudZero and Mendaera need estimated valuations, so the equity estimator must show "estimate" clearly and let users edit it.
 
 ## 7. Calibration (PRD hypothesis H3)
 `data/calibration.csv` holds 20 companies chosen to stress-test the rubric. They include a head-to-head pair (Sierra vs. Decagon), two LTV companies (Clay, Blitzy), tough tech (Impulse Space, Nuro), sparse-data companies (Mendaera, Bedrock Robotics) and a data-gap case (Postman). Each teammate fills in gut scores *before* seeing the engine's. `npm run calibrate` reports the Spearman rank correlation (target ≥ 0.5) and the five biggest disagreements. Those disagreements are the best material for "What we learned".
