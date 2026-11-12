@@ -6,6 +6,7 @@ import { normalizeWeights } from "./scoring.ts";
 import type { Weights } from "./scoring.ts";
 
 import type { Preferences } from "./filters.ts";
+import type { SalaryBand } from "./hiring.ts";
 
 export interface Profile {
   background_text: string; // resume / cover letter
@@ -63,6 +64,7 @@ export async function scoreFit(
   evaluation: Pick<EvaluationResult, "summary"> | null,
   openRoles: string[],
   openRolesByFunction?: Record<string, number>,
+  salaryBands?: SalaryBand[],
 ): Promise<{ score: number; reasons: string[]; watch_out: string }> {
   const text = await ask({
     system: SYSTEM,
@@ -71,7 +73,10 @@ export async function scoreFit(
 2) stage, size and growth vs what they want (risk appetite, scope, learning);
 3) sector, customer type (enterprise vs consumer) and business type they're drawn to, including mission;
 4) location, work policy and visa needs;
-5) their upside goals vs the company's Joiner Upside.
+5) their upside goals vs the company's Joiner Upside, and posted pay vs what they need.
+Hiring mostly outside the student's function is NOT a negative: it shows where the company is investing to grow.
+Mention it as a datapoint (e.g. "hiring is 60% sales: it's scaling go-to-market"), and suggest direct outreach if
+there's no open role in their function.
 Hard dealbreakers are filtered separately; here, judge fit among companies that pass.
 
 Student background (excerpt): ${p.background_text.slice(0, 3000)}
@@ -85,6 +90,7 @@ Sells to: ${company.customer_type?.join(", ") ?? "unknown"} | Business type: ${c
 Joiner Upside score: ${company.joiner_upside ?? "n/a"}/100
 Analyst summary: ${evaluation?.summary ?? "n/a"}
 Open roles by function: ${openRolesByFunction ? JSON.stringify(openRolesByFunction) : "unknown"}
+Posted salary ranges: ${salaryBands?.length ? salaryBands.map((b) => `${b.label} $${Math.round(b.min / 1000)}K–$${Math.round(b.max / 1000)}K (${b.postings_with_pay} postings)`).join("; ") : "none posted"}
 Open roles (sample): ${openRoles.slice(0, 25).join("; ") || "unknown"}
 
 Return JSON: {"score": number, "reasons": ["2-3 short bullets"], "watch_out": "one short line"}`,

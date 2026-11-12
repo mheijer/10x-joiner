@@ -234,3 +234,107 @@ function round(x: number, dp: number) {
   const f = Math.pow(10, dp);
   return Math.round(x * f) / f;
 }
+
+// ---------------------------------------------------------------- estimated equity package (no offer yet)
+// Rule-of-thumb grant sizes for MBA-level hires (senior IC / first-line manager), expressed as the 4-year
+// grant's value at the latest preferred price, as a multiple of base salary. These are rough heuristics for
+// orientation only, not market data: users should replace them with a real offer as soon as they have one.
+export const GRANT_MULTIPLE_OF_BASE: Record<StageBucket, { low: number; mid: number; high: number }> = {
+  early: { low: 1.0, mid: 1.5, high: 2.5 },
+  mid: { low: 0.5, mid: 0.9, high: 1.5 },
+  late: { low: 0.3, mid: 0.5, high: 0.9 },
+};
+// Common stock (409A) value as a share of the preferred price: sets the option strike.
+// Late-stage companies often grant RSUs instead of options (no exercise cost).
+const COMMON_TO_PREFERRED: Record<StageBucket, number> = { early: 0.3, mid: 0.4, late: 0.6 };
+
+export interface PackageInputs {
+  companyName: string;
+  stage?: string | null;
+  pmfScore?: number | null; // 1-5, so stage is judged by traction
+  postMoneyUsd: number; // latest valuation (actual or estimated)
+  postMoneyIsEstimate?: boolean;
+  totalRaisedUsd?: number | null; // ≈ current liquidation preference
+  baseSalaryUsd?: number | null; // from a posted range for the user's role, if any
+  baseSalarySource?: string | null; // e.g. "Posted range for Senior PM: $170K–$220K (Ashby)"
+  offer?: { grantPct: number; exerciseCostUsd?: number } | null; // real offer overrides the estimate
+}
+
+export interface PackageEstimate {
+  bucket: StageBucket;
+  instrument: "options" | "RSUs (likely)";
+  base_salary_usd: number | null;
+  grant: { pct_low: number; pct_mid: number; pct_high: number; value_mid_usd: number } | null;
+  exercise_cost_usd: number;
+  equity: EquityResult | null;
+  annualized_mid_usd: number | null; // base + expected equity value / 4 years
+  assumptions: string[]; // every assumption, in plain words, so the UI can show them
+}
+
+export function estimatePackage(p: PackageInputs): PackageEstimate {
+  const bucket = stageBucket(p.stage, p.pmfScore);
+  const instrument = bucket === "late" ? "RSUs (likely)" : "options";
+  const assumptions: string[] = [
+    `Valuation: $${fmtM(p.postMoneyUsd)}${p.postMoneyIsEstimate ? " (estimate)" : ""} for ${p.companyName}.`,
+    `Stage treated as ${bucket} (from ${p.stage ?? "unknown stage"}${p.pmfScore != null && p.pmfScore < 2.5 ? ", adjusted for early traction" : ""}).`,
+  ];
+
+  let grantPct: number | null = null;
+  let grant: PackageEstimate["grant"] = null;
+  if (p.offer) {
+    grantPct = p.offer.grantPct;
+    assumptions.push(`Grant: ${p.offer.grantPct}% from your offer.`);
+  } else if (p.baseSalaryUsd) {
+    const m = GRANT_MULTIPLE_OF_BASE[bucket];
+    const toPct = (mult: number) => round(((mult * p.baseSalaryUsd!) / p.postMoneyUsd) * 100, 5);
+    grant = { pct_low: toPct(m.low), pct_mid: toPct(m.mid), pct_high: toPct(m.high), value_mid_usd: Math.round(m.mid * p.baseSalaryUsd) };
+    grantPct = grant.pct_mid;
+    assumptions.push(
+      `Base salary: $${fmtK(p.baseSalaryUsd)}${p.baseSalarySource ? ` (${p.baseSalarySource})` : ""}.`,
+      `Grant (estimate): ${m.low}-${m.high}x base over 4 years for a ${bucket}-stage company, midpoint ${m.mid}x. Rule of thumb, not market data: replace with your offer.`,
+    );
+  } else {
+    assumptions.push("No posted salary for your role and no offer entered, so the grant can't be estimated yet.");
+  }
+
+  const exercise =
+    p.offer?.exerciseCostUsd ??
+    (grantPct != null && instrument === "options" ? Math.round((grantPct / 100) * p.postMoneyUsd * COMMON_TO_PREFERRED[bucket]) : 0);
+  if (instrument === "options" && grantPct != null && p.offer?.exerciseCostUsd == null)
+    assumptions.push(`Exercise cost: strike assumed at ~${Math.round(COMMON_TO_PREFERRED[bucket] * 100)}% of the preferred price (typical 409A).`);
+
+  let equity: EquityResult | null = null;
+  if (grantPct != null) {
+    const rounds = defaultFutureRounds(p.stage);
+    equity = estimateEquity({
+      grantPct,
+      exerciseCostUsd: exercise,
+      currentPostMoneyUsd: p.postMoneyUsd,
+      currentPreferenceUsd: p.totalRaisedUsd ?? 0,
+      futureRounds: rounds,
+      scenarios: defaultScenarios(p.postMoneyUsd, p.stage, p.pmfScore),
+    });
+    assumptions.push(
+      `Future rounds: ${rounds.map((r) => `${r.name} (${Math.round(r.dilution * 100)}% dilution, ${r.stepUp}x step-up)`).join(", ") || "none"}.`,
+      `Exit odds and multiples: ${bucket}-stage defaults. Liquidation preference ≈ total raised ($${fmtM(p.totalRaisedUsd ?? 0)}). Taxes ignored.`,
+    );
+  }
+
+  return {
+    bucket,
+    instrument,
+    base_salary_usd: p.baseSalaryUsd ?? null,
+    grant,
+    exercise_cost_usd: exercise,
+    equity,
+    annualized_mid_usd: p.baseSalaryUsd && equity ? Math.round(p.baseSalaryUsd + equity.expectedValueUsd / 4) : null,
+    assumptions,
+  };
+}
+
+function fmtM(x: number) {
+  return x >= 1e9 ? `${(x / 1e9).toFixed(1)}B` : `${Math.round(x / 1e6)}M`;
+}
+function fmtK(x: number) {
+  return `${Math.round(x / 1000)}K`;
+}

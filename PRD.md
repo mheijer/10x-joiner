@@ -72,8 +72,8 @@ Testers: 10–15 HBS classmates, a 15-minute session each, in Nov 25–Dec 1 wee
 - **Joiner Upside** (valuation headroom, career velocity) and any **red flags** with sources.
 - **Key facts**: ARR estimate, revenue per employee, headcount growth, customer type, GTM motion, pricing model, work policy, visa sponsorship. Each is marked fresh or estimated, with an as-of date.
 - **Funding**: rounds table (date, round, amount, post-money; estimates flagged).
-- **Open roles**: live listings (title, team, location, link), highlighting roles matching the user's target function.
-- **Equity estimator** (§9).
+- **Hiring**: live listings (title, team, location, link, **posted salary range**), roles in the user's target function highlighted. A **hiring focus** line ("62% Sales & CS: scaling go-to-market") is shown as a growth datapoint, never as a penalty. **Salary bands by function** where the company posts pay (required in CA, NY, CO, WA and others).
+- **Equity package** (§9): estimated from the company's financials and the posted salary for the user's role, or from their real offer.
 - "Re-evaluate" button (rate-limited).
 
 ### 7.5 Add a company
@@ -89,7 +89,9 @@ Full rationale, course anchors and the worked Sierra example: **[docs/SCORING_FR
   - Weights start from a preset (Balanced, Upside seeker, Safety first, Builder) suggested from the profile, then sliders.
   - Hard preferences (stage, size, growth, location, work policy, visa, sector, customer/business type, open roles in my function) are **filters**, not scores; missing data shows as "unverified".
 
-## 9. Equity estimator
+## 9. Equity estimator & package estimate
+- **Before an offer:** estimate the package from the company's financials (latest valuation, total raised, stage, PMF) and the **posted salary range for the user's target role**. Grant size = a rule-of-thumb multiple of base by stage (early 1-2.5x, mid 0.5-1.5x, late 0.3-0.9x over 4 years), clearly labeled as an estimate. Strike ≈ typical 409A; late-stage assumes RSUs. Every assumption is listed in plain words.
+- **With an offer:** the user's real grant and strike replace the estimate.
 - Inputs (pre-filled, editable): current post-money (latest known or estimated), offer as % or shares + strike, future dilution per round (default 15–20%) and number of rounds to exit, exit scenarios (bear / base / bull values with probabilities), liquidation preference overhang (simple: total preferred raised).
 - Output: value of the grant in each scenario plus a probability-weighted expected value, with assumptions shown. Disclaimer: illustrative only, not financial advice.
 

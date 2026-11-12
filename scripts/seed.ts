@@ -18,6 +18,7 @@ import { evaluateCompany } from "../lib/evaluate.ts";
 import { normalizeUsLocation, geocodeUs } from "../lib/geocode.ts";
 import { discoverJobs, classifyRole, countByFunction, boardUrl } from "../lib/jobs.ts";
 import { collectSignals } from "../lib/signals.ts";
+import { hiringProfile } from "../lib/hiring.ts";
 import type { Signal } from "../lib/signals.ts";
 import { factsToCompanyUpdate } from "../lib/facts.ts";
 import { joinerUpside } from "../lib/scoring.ts";
@@ -227,7 +228,10 @@ async function jobs() {
     found++;
     await db.from("jobs").delete().eq("company_id", c.id);
     await db.from("jobs").insert(hit.jobs.map((j) => ({ company_id: c.id, ...j, job_function: classifyRole(j.title) })));
-    await db.from("companies").update({ ats_provider: hit.provider, ats_slug: hit.slug }).eq("id", c.id);
+    await db
+      .from("companies")
+      .update({ ats_provider: hit.provider, ats_slug: hit.slug, hiring_profile: hiringProfile(hit.jobs) })
+      .eq("id", c.id);
   });
   console.log(`Jobs: found boards for ${found}/${list.length} companies.`);
 }

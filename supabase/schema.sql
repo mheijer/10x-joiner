@@ -31,6 +31,7 @@ create table if not exists companies (
   playbook      text,          -- network | marketplace | sales_led_saas | plg_saas | api_platform | b2c_paid | hardware | services_as_software
   facts         jsonb,         -- full facts object from the latest evaluation
   facts_as_of   text,          -- YYYY-MM of freshest source
+  hiring_profile jsonb,        -- lib/hiring.ts: open roles by function, hiring focus, salary bands (refreshed with jobs)
   list_snapshot jsonb,         -- original Rocketship List values (kept for provenance; list data can be stale)
   careers_url   text,
   ats_provider  text,          -- greenhouse | lever | ashby | null
@@ -81,6 +82,11 @@ create table if not exists jobs (
   url         text,
   source      text,
   job_function text,           -- product | bizops | gtm | chief_of_staff | fde | marketing | engineering | other
+  salary_min  numeric,         -- posted annual pay range, where the company publishes it
+  salary_max  numeric,
+  salary_currency text,
+  salary_text text,            -- as posted, e.g. "$170K – $220K • Offers Equity"
+  offers_equity boolean,       -- null = not stated
   fetched_at  timestamptz not null default now()
 );
 

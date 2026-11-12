@@ -165,6 +165,15 @@ Plain attributes, gathered during evaluation. **Team rules:**
 | Valuation headroom | Latest valuation vs revenue, growth and peers | |
 | Career velocity | Headcount growth, open roles, company stage | |
 
+**Jobs, pay and the equity package** (not scored, but shown and fed to personal fit):
+
+| What | Source | Notes |
+|---|---|---|
+| Open roles by function, hiring focus | Company job board: Greenhouse, Lever or Ashby public APIs | Hiring mostly outside your function is a growth datapoint, not a penalty (e.g. heavy sales hiring = the Sales Learning Curve's scaling phase) |
+| Posted salary ranges | Ashby `includeCompensation` (structured); Lever `salaryRange`; Greenhouse posting text | Available where companies post pay (required in CA, NY, CO, WA and others). Hourly and implausible figures ignored |
+| Offers equity? | Ashby compensation components; posting text elsewhere | |
+| Estimated equity package | Latest valuation and total raised (evaluation facts) + posted salary for your role + stage rule-of-thumb grant size | Labeled as an estimate; every assumption listed; a real offer replaces it |
+
 **What we don't use:** LinkedIn (its terms prohibit scraping), paid databases (PitchBook, Crunchbase Pro, Similarweb), and the Rocketship List's numbers.
 
 ## 8. Calibration (PRD hypothesis H3)
