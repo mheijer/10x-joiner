@@ -1,0 +1,93 @@
+# "Run pipeline" button: Actions tab → Run pipeline → Run workflow.
+# Runs the data scripts on GitHub's computers with the keys stored in repo secrets
+# (Settings → Secrets and variables → Actions). Nothing runs on anyone's laptop.
+name: Run pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+      task:
+        description: "What to run"
+        type: choice
+        required: true
+        default: test-batch
+        options:
+          - load            # load the 556 companies + map locations (free)
+          - test-batch      # evaluate the 12 test companies on Opus (~$4-7, stops at $10)
+          - jobs            # pull job listings + posted salaries (free)
+          - evaluate        # evaluate the companies named below (paid)
+          - calibrate       # compare engine scores with the team's gut scores
+      companies:
+        description: "For 'evaluate' or 'jobs': comma-separated company names (blank = all for jobs)"
+        type: string
+        required: false
+        default: ""
+      max_cost:
+        description: "Budget cap in USD for paid tasks"
+        type: string
+        required: false
+        default: "10"
+      force:
+        description: "Re-evaluate companies that already have scores"
+        type: boolean
+        required: false
+        default: false
+
+concurrency:
+  group: pipeline # never two pipeline runs at once
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-audit --no-fund
+
+      - name: Check secrets are set
+        run: |
+          missing=""
+          for v in NEXT_PUBLIC_SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY; do [ -z "${!v}" ] && missing="$missing $v"; done
+          if [ "${{ inputs.task }}" = "test-batch" ] || [ "${{ inputs.task }}" = "evaluate" ]; then
+            [ -z "$ANTHROPIC_API_KEY" ] && missing="$missing ANTHROPIC_API_KEY"
+          fi
+          if [ -n "$missing" ]; then echo "::error::Missing repo secrets:$missing"; exit 1; fi
+
+      - name: Load companies
+        if: inputs.task == 'load'
+        run: npx tsx scripts/seed.ts --load
+
+      - name: Test batch (12 companies, Opus)
+        if: inputs.task == 'test-batch'
+        run: npx tsx scripts/seed.ts --evaluate --only "Sierra,Decagon,Crescendo,Blitzy,Clay,CloudZero,knownwell,Mendaera,Cursor,Nuro,WHOOP,Bedrock Robotics" --max-cost "${{ inputs.max_cost }}" ${{ inputs.force && '--force' || '' }}
+
+      - name: Evaluate named companies
+        if: inputs.task == 'evaluate'
+        run: |
+          if [ -z "${{ inputs.companies }}" ]; then echo "::error::Name the companies to evaluate"; exit 1; fi
+          npx tsx scripts/seed.ts --evaluate --only "${{ inputs.companies }}" --max-cost "${{ inputs.max_cost }}" ${{ inputs.force && '--force' || '' }}
+
+      - name: Pull jobs
+        if: inputs.task == 'jobs'
+        run: npx tsx scripts/seed.ts --jobs ${{ inputs.companies != '' && format('--only "{0}"', inputs.companies) || '' }}
+
+      - name: Calibrate
+        if: inputs.task == 'calibrate'
+        run: npx tsx scripts/calibrate.ts
+
+      - name: Save evaluation outputs
+        if: always() && (inputs.task == 'test-batch' || inputs.task == 'evaluate')
+        uses: actions/upload-artifact@v4
+        with:
+          name: evaluations-${{ github.run_number }}
+          path: data/eval_samples/
+          if-no-files-found: ignore

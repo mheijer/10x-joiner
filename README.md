@@ -35,6 +35,12 @@ npm run dev                  # http://localhost:3000
 - Never commit `.env.local` or any API keys.
 - If you use Claude Code, point it at `PRD.md` first so it builds to the spec.
 
+## Running the data pipeline (in the cloud, no setup)
+Everything runs on GitHub's computers: **Actions tab → "Run pipeline" → Run workflow**, then pick a task
+(load, test-batch, jobs, evaluate, calibrate). Keys live in **Settings → Secrets and variables → Actions**:
+`ANTHROPIC_API_KEY`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`.
+Every pull request also runs the **Build check** (logic tests, type check, app build).
+
 ## Running evaluations (and what they cost)
 Model: **Claude Opus 5.5** by default (team decision). Each evaluation is ~$0.30-0.60 (tokens + ~6 web searches at $0.01 each).
 The seed script prints the running cost and a projection for all 556 companies. Account limit: **$50/month** (Anthropic Console).
