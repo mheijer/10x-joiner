@@ -1,9 +1,9 @@
 name,why_included,team_gut_winning_0_100,team_gut_joiner_upside_0_100,scorer,notes
-Sierra,Worked example; AI-agent category leader,,,,
-Decagon,Head-to-head pair with Sierra: does the engine separate #1 from #2?,,,,
+Sierra,Worked example; AI-agent category leader,,,,Hand-scored: winning 85.5 / upside 75
+Decagon,Head-to-head pair with Sierra: does the engine separate #1 from #2?,,,,Hand-scored: winning 72.9 / upside 55.3
 Cursor,Top-funded AI dev tool; hypergrowth,,,,
 Clay,LTV reading (Clay's Path to PMF): 6 years to PMF,,,,
-Blitzy,LTV case (FDEs; Boston),,,,
+Blitzy,LTV case (FDEs; Boston),,,,Hand-scored: winning 70.9 / upside 80.3
 Glean,Enterprise AI search; mature Series D+,,,,
 Luma AI,Consumer/creator AI video; capital-intensive,,,,
 Nuro,Autonomous delivery; deep tech; long road,,,,
@@ -13,9 +13,9 @@ Bedrock Robotics,Young (2024) robotics; little public data,,,,
 Sublime Security,Mid-stage cybersecurity; crowded market,,,,
 Silk,Cloud infra; Massachusetts; mid-tier funding,,,,
 Nanit,Consumer HealthTech hardware,,,,
-Mendaera,Medical robotics; tiny team; sparse info,,,,
+Mendaera,Medical robotics; tiny team; sparse info,,,,Hand-scored: winning 47.5 / upside 61.3
 Polly,FinTech; mid-tier; tests red-ocean scoring,,,,
 HiddenLayer,AI security; lower funding,,,,
-CloudZero,FinOps SaaS; Boston; modest funding,,,,
+CloudZero,FinOps SaaS; Boston; modest funding,,,,Hand-scored: winning 60.2 / upside 53.8
 Eleos Health,AI behavioral-health documentation,,,,
 Postman,Mature dev tool; missing funding in list (data-gap test),,,,

@@ -103,25 +103,27 @@ Plain attributes, gathered during evaluation. **Team rules:**
 
 ## 6. Worked examples (Nov 2026, scored by hand with this rubric)
 
-| | Sierra | CloudZero | Mendaera |
-|---|---|---|---|
-| What | AI customer-service agents | Cloud & AI cost management (Boston) | Handheld medical robot for needle procedures |
-| Stage / raised | Series E, $1.585B | Series C, ~$119M (largest credible figure; the company said ">$85M" in May 2025) | Series B, ~$97M |
-| Traction | $400M+ ARR, doubling in ~5 months | ~$42M ARR (Sacra est.), 4 years of triple-digit growth | FDA-cleared Jul 2025; limited launch; no revenue disclosed |
-| **Probability of Winning** | **85.5** | **60.2** | **47.5** |
-| **Joiner Upside** | **75** | **53.8** | **61.3** |
-| Quadrant | Pursue (near Blue chip) | Middle of the pack | Lottery ticket |
-| Weakest dimensions | Moat, competition, business model (3.5) | Competition 2.5 (Vantage, Finout, IBM, Broadcom, AWS's own tools); independence 2.5 (depends on AWS billing data while AWS competes) | PMF and growth 1.5 (pre-revenue); business model 2.5 (unknown) |
-| Strongest | Market, PMF, growth, capital, team | Business model 4 (priced on cloud spend, so revenue grows with customers); risks retired 4 | Competition 4 (new category); team 4 (Fred Moll-backed, robotics CCO) |
-| Example grant | 0.002% ($316K on paper) | 0.05% ($250K on paper, est. $500M valuation) | 0.1% ($320K on paper, est. $320M valuation) |
-| Equity expected value | $476K | $460K | $415K, but a 55% chance of $0, and a "modest" exit also pays $0 because investors' preferences absorb it |
-| Jobs | Ashby; PM, Agent Development (MBA a plus) | Ashby; 2 PM roles in Boston/SF | Not on Greenhouse/Lever/Ashby → careers-page link |
+| | Sierra | Decagon | Blitzy | CloudZero | Mendaera |
+|---|---|---|---|---|---|
+| What | AI customer-service agents | AI customer-service agents (Sierra's #1 rival) | Autonomous enterprise coding (LTV case; Cambridge, MA) | Cloud & AI cost management (Boston) | Handheld medical robot |
+| Latest valuation / raised | $15.8B / $1.585B | $4.5B / ~$506M | $1.4B / ~$209M | undisclosed (est. $500M) / ~$119M | undisclosed (est. $320M) / ~$97M |
+| Traction | $400M+ ARR | ~$35M ARR (2025 est.), 100+ enterprise logos in 2025 | ~$20M ARR Q1 '26, doubling quarterly (LTV case) | ~$42M ARR (est.) | FDA-cleared; pre-revenue |
+| **Probability of Winning** | **85.5** | **72.9** | **70.9** | **60.2** | **47.5** |
+| **Joiner Upside** | **75** | **55.3** | **80.3** | **53.8** | **61.3** |
+| Quadrant | Pursue | Blue chip-ish (priced high: ~130x ARR) | **Pursue** (best joiner deal of the five) | Middle | Lottery ticket |
+| Weakest | Moat, competition, BM | Valuation headroom; PMF/growth vs Sierra | Competition 2.5 (Cognition, Factory, Cursor, Claude Code, Codex); independence 2.5 (model providers are also competitors) | Competition, independence 2.5 | PMF, growth 1.5 |
+| Equity EV (example grant) | 0.002% → $482K | 0.01% → $687K | 0.02% → $512K | 0.05% → $473K | 0.1% → $505K (55% chance of $0) |
+
+**Sierra vs Decagon** (same market, same founding year): the rubric separates them by 12.6 points. The gaps are in PMF (+1), growth (+1) and half-points across moat, competition, GTM, risk, capital and team. Decagon wins on independence (it runs ~80% of inference on its own fine-tuned models). For a joiner, Decagon's ~130x revenue multiple drags its upside well below Sierra's.
+
+**Blitzy vs the course:** the rubric's weak spots (moat 3, competition 2.5, independence 2.5) match the open question the instructors raised in class: *is the moat durable?*
 
 ### What the walkthroughs taught us (and what we changed)
 1. **The seed list is stale or wrong in places.** Sierra: 488 employees and $635M listed vs ~700 and $1.585B. Mendaera: 4 employees listed vs ~20. → The list's numbers are no longer used at all; it only identifies companies.
 2. **Sources disagree a lot for smaller companies.** CloudZero's total funding ranges from $56M to $119M across sites, and one research estimate ("757% YoY") doesn't match its own ARR history. → Source hierarchy, a `conflicts` field, an instruction to distrust internally inconsistent figures, and a rule to take the **larger** funding total (it's usually the more recent).
 3. **Stage labels mislead.** Mendaera is "Series B" but pre-revenue, so mid-stage exit odds made its equity look better than Sierra's. → Stage is now judged by traction (PMF score) as well as by round name: the course's "TechCrunch false positive" lesson.
 4. **Exit multiples were double-counting success.** They were applied on top of a valuation that already assumed future rounds. → Exits are now multiples of *today's* valuation.
+4b. **Future rounds were assumed in every scenario.** A "modest" exit at today's valuation was charged the dilution and liquidation preferences of three later up-rounds, which made it pay $0. → Each scenario now only counts rounds priced below its exit value. (An earlier note that Mendaera's modest exit "pays $0 because of preferences" was this bug, not a real effect. Preferences only bite when the exit is below the total preference stack.)
 5. **"Low confidence" was rewarding unknowns.** Pulling uncertain scores toward 3 lifted a pre-revenue company's growth from 1.5 to 2.1. → The prompt now treats evidence of absence (no revenue yet) as evidence; low confidence is only for genuinely unknown.
 6. **Job coverage has gaps.** Smaller medtech/hardware companies often don't use Greenhouse, Lever or Ashby. → They fall back to a careers-page link. Coverage is worth measuring after the first batch.
 7. **Valuations are usually undisclosed below late stage.** Both CloudZero and Mendaera need estimated valuations, so the equity estimator must show "estimate" clearly and let users edit it.

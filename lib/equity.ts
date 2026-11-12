@@ -54,8 +54,8 @@ export interface ScenarioResult {
 }
 
 export interface EquityResult {
-  ownershipAtExitPct: number;
-  preferenceAtExitUsd: number;
+  ownershipAtExitPct: number; // if every projected round happens
+  preferenceAtExitUsd: number; // if every projected round happens
   financingPath: FinancingStep[]; // empty in simple mode
   scenarios: ScenarioResult[];
   expectedValueUsd: number;
@@ -96,25 +96,32 @@ export function estimateEquity(inp: EquityInputs): EquityResult {
   const prefOwn = clamp(inp.preferredOwnershipAtExit ?? 0.55, 0, 0.99);
   const exercise = Math.max(0, inp.exerciseCostUsd ?? 0);
 
-  let ownership: number; // fraction at exit
-  let pref: number;
+  const pSum = inp.scenarios.reduce((a, s) => a + Math.max(0, s.probability), 0) || 1;
   let financingPath: FinancingStep[] = [];
 
+  // Ownership and preference stack a scenario implies.
+  // Detailed mode: only rounds priced BELOW the exit value are assumed to happen in that scenario.
+  // (A company that exits at today's valuation didn't first raise three up-rounds above it.)
+  let stackFor: (exit: number) => { ownership: number; pref: number };
   if (inp.futureRounds && inp.currentPostMoneyUsd != null) {
     financingPath = projectFinancing(inp.grantPct, inp.currentPostMoneyUsd, inp.currentPreferenceUsd ?? 0, inp.futureRounds);
-    const last = financingPath[financingPath.length - 1];
-    ownership = last.ownershipPct / 100;
-    pref = last.preferenceUsd;
+    const path = financingPath;
+    stackFor = (exit) => {
+      let step = path[0];
+      for (const p of path.slice(1)) if (p.postMoneyUsd <= exit) step = p;
+      return { ownership: step.ownershipPct / 100, pref: step.preferenceUsd };
+    };
   } else {
     const dilution = clamp(inp.dilutionPerRound ?? 0.18, 0, 0.9);
     const rounds = Math.max(0, Math.round(inp.roundsToExit ?? 2));
-    ownership = (inp.grantPct / 100) * Math.pow(1 - dilution, rounds);
-    pref = Math.max(0, inp.preferenceUsd ?? 0);
+    const own = (inp.grantPct / 100) * Math.pow(1 - dilution, rounds);
+    const pref = Math.max(0, inp.preferenceUsd ?? 0);
+    stackFor = () => ({ ownership: own, pref });
   }
 
-  const pSum = inp.scenarios.reduce((a, s) => a + Math.max(0, s.probability), 0) || 1;
   const scenarios = inp.scenarios.map((s) => {
     const exit = Math.max(0, s.exitValueUsd);
+    const { ownership, pref } = stackFor(exit);
     // Preferred converts to common when its pro-rata share beats its preference.
     const converts = prefOwn * exit >= pref;
     const gross = converts
@@ -132,9 +139,10 @@ export function estimateEquity(inp: EquityInputs): EquityResult {
   });
 
   const ev = scenarios.reduce((a, s) => a + s.probability * s.netValueUsd, 0);
+  const full = stackFor(Number.POSITIVE_INFINITY); // all projected rounds happen
   return {
-    ownershipAtExitPct: round(ownership * 100, 4),
-    preferenceAtExitUsd: Math.round(pref),
+    ownershipAtExitPct: round(full.ownership * 100, 4),
+    preferenceAtExitUsd: Math.round(full.pref),
     financingPath,
     scenarios,
     expectedValueUsd: Math.round(ev),
