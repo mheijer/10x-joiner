@@ -1,6 +1,7 @@
 // Measured traction signals from free public APIs, independent of fundraising.
 // These are fed to the evaluation as evidence for PMF and growth, alongside what web search finds.
-// Funding says what investors believe; these say what customers and users actually do.
+// Funding says what investors believe (its pace can support a PMF score, see lib/rubric.ts);
+// these say what customers and users actually do.
 //
 // Source                    | Signal                                        | Best for
 // --------------------------|-----------------------------------------------|---------------------------

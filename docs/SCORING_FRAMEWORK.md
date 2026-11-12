@@ -135,7 +135,11 @@ Plain attributes, gathered during evaluation. **Team rules:**
 
 ## 7. Data sources: what feeds each score
 
-**Team rule: funding is not evidence of PMF.** Funding shows what investors believe; PMF is what customers do (the "TechCrunch false positive"; Chief). Funding, valuations and investor names count only toward **Capital** and **Valuation headroom**. PMF and Growth must rest on customer evidence. Each evaluation must record at least 3 non-funding PMF signals in `pmf_evidence`; otherwise PMF gets low confidence.
+**Team rule: funding pace supports PMF but never carries it.** Funding shows what investors believe; PMF is what customers do (the "TechCrunch false positive"; Chief). But the *pace* of funding is informative: quick rounds, pre-empts and fast step-ups often reflect metrics investors saw privately. So:
+- Funding pace may be **one supporting signal** (`investor_signal`) for PMF and growth.
+- Each evaluation records at least 3 PMF signals, **at least 2 customer-side** (revenue, demand, retention, usage, organic pull, pricing power).
+- **Enforced in code:** with fewer than 2 customer-side signals, PMF is capped at 3 with low confidence, and the rationale says why (`enforcePmfEvidenceRule`).
+- Round sizes and investor names without pace count only toward **Capital** and **Valuation headroom**.
 
 **Three kinds of input:**
 
@@ -149,8 +153,8 @@ Plain attributes, gathered during evaluation. **Team rules:**
 
 | Dimension | Main evidence | Never used |
 |---|---|---|
-| PMF & JTBD | Revenue/ARR disclosures; customer counts and named results; renewals and expansion; review ratings and volume; usage signals; word of mouth | Funding, valuation, investors |
-| Growth momentum | Revenue over time; customer-count growth; hiring growth and customer-facing hiring share; usage/mention trends (year over year) | Round step-ups |
+| PMF & JTBD | Revenue/ARR disclosures; customer counts and named results; renewals and expansion; review ratings and volume; usage signals; word of mouth. Supporting only: funding pace | Funding as the sole or main evidence |
+| Growth momentum | Revenue over time; customer-count growth; hiring growth and customer-facing hiring share; usage/mention trends (year over year). Supporting only: funding pace | Funding as the sole or main evidence |
 | Market | Market-size research, category growth, adjacent products | |
 | Moat, Competition | Product depth, integrations, competitor revenue/customers, comparison coverage | |
 | Business model | Pricing pages, pricing model, margins (if disclosed), expansion revenue | |

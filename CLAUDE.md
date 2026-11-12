@@ -20,6 +20,6 @@ Read `PRD.md` before building any feature. It defines the user (HBS joiners), th
 - Data only needs to be directionally correct. Prefer shipping over perfecting sources.
 - Never use the Rocketship List's numbers (headcount, funding): the list is out of date. It only identifies companies.
 - When sources disagree on total funding, use the larger figure (it's usually the more recent).
-- Funding is NOT evidence of PMF. PMF and growth rest on customer evidence and measured signals (`lib/signals.ts`); funding counts only toward capital and valuation headroom.
+- Funding pace supports PMF but never carries it: PMF needs at least 2 customer-side signals, or it is capped at 3 with low confidence (enforced in `enforcePmfEvidenceRule`, `lib/rubric.ts`).
 - Log notable AI tool usage in `AI_USAGE.md` (required for the course brief).
 - Work on a branch and open a PR. Never commit `.env.local`.

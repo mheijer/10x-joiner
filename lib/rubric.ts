@@ -68,7 +68,7 @@ export const DIMENSIONS: Dimension[] = [
     key: "growth",
     group: "winning",
     label: "Growth momentum",
-    question: "How fast are revenue, customers and usage growing right now, and is growth accelerating or slowing? (Funding growth doesn't count.)",
+    question: "How fast are revenue, customers and usage growing right now, and is growth accelerating or slowing? (Funding pace can corroborate, but not replace, customer growth.)",
     courseAnchor:
       "T2D3 (Battery) and Q2T3 (Bessemer State of AI); Supernova vs Shooting Star growth curves; Sales Learning Curve (AI compresses it, but 'only scales what already works'); First Round 'Demand' and 'Efficiency' axes; cohort expansion (Sprout NDR >150%)",
     defaultWeight: 10,
@@ -311,7 +311,7 @@ export interface DimensionScore {
 }
 
 export interface PmfEvidence {
-  type: "revenue" | "demand" | "retention" | "usage" | "organic_pull" | "pricing_power";
+  type: "revenue" | "demand" | "retention" | "usage" | "organic_pull" | "pricing_power" | "investor_signal";
   signal: string;
   value: string;
   as_of?: string | null;
@@ -365,13 +365,15 @@ Confidence means "how sure am I of this score", not "how much data exists":
   (Exception: exclude debt facilities and grants if a source clearly labels them as such.)
 - Research every number yourself and note the date of your freshest source (as_of).
 
-Funding is NOT evidence of product-market fit (team rule):
+Funding is supporting evidence for product-market fit, never the only evidence (team rule):
 - Funding shows what investors believe; PMF is what customers do. Investors can be wrong (the "TechCrunch false
-  positive"; Chief raised $100M+ and later shrank).
-- For "pmf" and "growth", never cite round sizes, valuations, step-ups or investor names as evidence. Use customer
-  evidence and the measured signals provided. Funding belongs only in "capital" and "valuation_headroom".
-- Record at least 3 non-funding PMF signals in "pmf_evidence". If you can't find 3, score "pmf" with LOW confidence
-  and say what was missing.`;
+  positive"; Chief raised $100M+ and later shrank). But the PACE of funding carries real information: rounds coming
+  quickly, investors pre-empting, or valuations stepping up fast often reflect metrics investors saw privately.
+- For "pmf" and "growth", lead with customer evidence and the measured signals provided. You may add funding pace
+  (time between rounds, pre-emptive rounds, step-ups) as ONE supporting signal of type "investor_signal".
+- Record at least 3 PMF signals in "pmf_evidence", at least 2 of them customer-side (not "investor_signal").
+  Without 2 customer-side signals, "pmf" is capped at 3 and gets LOW confidence; say what was missing.
+- Round sizes and investor names on their own (without pace) belong only in "capital" and "valuation_headroom".`;
 
 export function buildEvaluationPrompt(c: CompanyInput, measuredSignals = ""): string {
   const known = [
@@ -452,7 +454,7 @@ Return ONLY a JSON object (no markdown fences) with exactly this shape:
   "scores": {
     ${DIMENSIONS.map(scoreLine).join(",\n    ")}
   },
-  "pmf_evidence": [{"type": "revenue|demand|retention|usage|organic_pull|pricing_power", "signal": "what it shows", "value": "the number or fact", "as_of": "YYYY-MM", "source": "url"}],
+  "pmf_evidence": [{"type": "revenue|demand|retention|usage|organic_pull|pricing_power|investor_signal", "signal": "what it shows", "value": "the number or fact", "as_of": "YYYY-MM", "source": "url"}],
   "red_flags": [{"type": "governance_ethics|overstated_metrics|leadership_exodus|layoffs_or_down_round|legal_or_regulatory|customer_or_partner_concentration", "severity": "low|medium|high", "detail": "one line", "source": "url"}],
   "conflicts": ["e.g. 'Aggregators label the Feb 2024 round Seed vs Series A; used company blog'"]
 }`;
@@ -489,14 +491,37 @@ export function parseEvaluation(raw: string): EvaluationResult {
           source: typeof f.source === "string" ? f.source : null,
         }))
     : [];
+  const pmf_evidence: PmfEvidence[] = Array.isArray(obj.pmf_evidence)
+    ? obj.pmf_evidence.filter((e: any) => e && typeof e.value === "string" && typeof e.signal === "string").slice(0, 10)
+    : [];
+  enforcePmfEvidenceRule(scores, pmf_evidence);
   return {
     summary: String(obj.summary ?? ""),
-    pmf_evidence: Array.isArray(obj.pmf_evidence)
-      ? obj.pmf_evidence.filter((e: any) => e && typeof e.value === "string" && typeof e.signal === "string").slice(0, 10)
-      : [],
+    pmf_evidence,
     facts: obj.facts ?? {},
     scores,
     red_flags,
     conflicts: Array.isArray(obj.conflicts) ? obj.conflicts.map(String) : [],
   };
+}
+
+/**
+ * Team rule, enforced in code (not just asked of the model): funding pace may support a PMF score but never carry it.
+ * With fewer than 2 customer-side signals, PMF is capped at 3 with low confidence.
+ * Returns true if the cap was applied.
+ */
+export const MIN_CUSTOMER_SIGNALS = 2;
+export const PMF_CAP_WITHOUT_CUSTOMER_EVIDENCE = 3;
+export function enforcePmfEvidenceRule(scores: Record<DimensionKey, DimensionScore>, evidence: PmfEvidence[]): boolean {
+  const customerSide = evidence.filter((e) => e.type !== "investor_signal").length;
+  if (customerSide >= MIN_CUSTOMER_SIGNALS || !scores.pmf) return false;
+  const pmf = scores.pmf;
+  const capped = pmf.score > PMF_CAP_WITHOUT_CUSTOMER_EVIDENCE;
+  scores.pmf = {
+    ...pmf,
+    score: Math.min(pmf.score, PMF_CAP_WITHOUT_CUSTOMER_EVIDENCE),
+    confidence: "low",
+    rationale: `${pmf.rationale} [Capped: only ${customerSide} customer-side PMF signal(s) found; funding alone can't establish PMF.]`.trim(),
+  };
+  return capped || pmf.confidence !== "low";
 }
