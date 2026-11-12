@@ -53,15 +53,15 @@ export const DIMENSIONS: Dimension[] = [
   {
     key: "pmf",
     group: "winning",
-    label: "PMF level & customer love (HUNCH)",
-    question: "How far along the PMF levels is it, and do customers treat it as a hair-on-fire must-have?",
+    label: "PMF, job-to-be-done & customer love (HUNCH)",
+    question: "What job is the customer hiring it for, is it 10x better than the substitute, and how far along the PMF levels is it?",
     courseAnchor:
-      "First Round Levels of PMF (Nascent → Extreme); Balfour's 4 checks; HUNCH (hair on fire, usage, NPS, churn, high WTP); Sean Ellis 40%; Page toothbrush test; 'usage leads, churn lags'",
+      "Jobs to Be Done (the job, not the demographic; Forces of Progress: push + pull must beat anxiety + habit); hair-on-fire and 10x better than the closest substitute (Seibel, Thiel); First Round Levels of PMF (Nascent → Extreme); Balfour's 4 checks; HUNCH (hair on fire, usage, NPS, churn, high WTP); Sean Ellis 40%; Page toothbrush test; 'usage leads, churn lags'; Crossing the Chasm (early-adopter love can be a false positive)",
     defaultWeight: 15,
     scale: {
-      1: "Nascent: few paying customers; weak usage or retention signals",
-      3: "Developing/Strong: ~$5-25M ARR (or equivalent), real pain, healthy retention",
-      5: "Extreme: $25M+ ARR or hypergrowth; customers buy faster than it can deliver; must-have",
+      1: "Nascent: unclear job, few paying customers, weak usage or retention; or only early adopters so far",
+      3: "Developing/Strong: clear job, ~$5-25M ARR (or equivalent), real pain, healthy retention beyond early adopters",
+      5: "Extreme: a hair-on-fire job done 10x better; $25M+ ARR or hypergrowth; customers buy faster than it can deliver",
     },
   },
   {
@@ -178,15 +178,15 @@ export const DIMENSIONS: Dimension[] = [
   {
     key: "team",
     group: "winning",
-    label: "Team, founder-market fit & velocity",
-    question: "Do the founders have an earned secret and the speed to out-execute?",
+    label: "Team, founder-market fit & 10x org",
+    question: "Do the founders have an earned secret, the speed to out-execute, and an AI-native '10x organization'?",
     courseAnchor:
-      "Earned secrets (Tavel); founder-market fit and the FMF trap; Founder Velocity score (Wiz deck); courage to pivot ('burn the boats'); early-stage CEO's job (Bardin)",
+      "Earned secrets (Tavel); founder-market fit and the FMF trap; Founder Velocity score (Wiz deck: build speed, experimentation velocity, customer-loop speed, leverage); 10x org = AI brain + harness + process (Sweet 16 #13; 'Blitzy building Blitzy'); talent density (Who Method); courage to pivot ('burn the boats'); early-stage CEO's job (Bardin)",
     defaultWeight: 10,
     scale: {
       1: "No evident domain edge; key departures",
       3: "Credible founders with relevant experience",
-      5: "Exceptional/repeat founders with an earned secret and proven execution velocity",
+      5: "Exceptional/repeat founders with an earned secret, proven velocity, and an AI-native org (high output per person)",
     },
   },
   {
@@ -292,6 +292,11 @@ export interface Facts {
   notable_customers?: string[];
   competitors?: string[];
   sponsors_visas?: "yes" | "likely" | "unknown" | "no";
+  // Where it sits on the LTV master table: which fit it has proven, and which experiment it's running now.
+  ltv_phase?: "cvp_fit" | "gtm_fit" | "bm_fit" | "scaling" | null;
+  ltv_phase_evidence?: string | null;
+  playbook?: "network" | "marketplace" | "sales_led_saas" | "plg_saas" | "api_platform" | "b2c_paid" | "hardware" | "services_as_software" | "other" | null;
+  liquidity_events?: { type: "tender_offer" | "secondary" | "acquisition_offer" | "ipo_filing"; date?: string | null; detail: string; source?: string | null }[];
   careers_url?: string | null;
   ats?: { provider: "greenhouse" | "lever" | "ashby" | null; slug: string | null } | null;
 }
@@ -384,7 +389,9 @@ Find: latest funding rounds and valuation; ARR/revenue and its growth rate over 
 customers and who buys (enterprise/SMB/consumer); pricing model and sales motion; competitors; founders' backgrounds;
 key dependencies (platforms, partners, channels, model providers); any red flags (lawsuits, regulatory action,
 layoffs, down rounds, leadership departures, disputed metrics); work policy and office locations;
-whether it sponsors work visas (e.g. H-1B filings); and the careers page. Note whether the careers page is on
+whether it sponsors work visas (e.g. H-1B filings); any employee liquidity (tender offers, secondaries);
+which LTV phase it's in (CVP fit = proving customers love it; GTM fit = proving repeatable acquisition;
+BM fit = proving profitable unit economics; scaling = all three proven); and the careers page. Note whether the careers page is on
 Greenhouse (boards.greenhouse.io/<slug> or job-boards.greenhouse.io/<slug>), Lever (jobs.lever.co/<slug>) or Ashby (jobs.ashbyhq.com/<slug>).
 
 ## Probability of Winning ("is this a great company?"): score each 1-5
@@ -413,6 +420,9 @@ Return ONLY a JSON object (no markdown fences) with exactly this shape:
     "founders": [{"name": "...", "background": "short", "repeat_founder": boolean}],
     "notable_customers": ["..."], "competitors": ["..."],
     "sponsors_visas": "yes|likely|unknown|no",
+    "ltv_phase": "cvp_fit|gtm_fit|bm_fit|scaling", "ltv_phase_evidence": "one line: what it has proven and what it's working on now",
+    "playbook": "network|marketplace|sales_led_saas|plg_saas|api_platform|b2c_paid|hardware|services_as_software|other",
+    "liquidity_events": [{"type": "tender_offer|secondary|acquisition_offer|ipo_filing", "date": "YYYY-MM", "detail": "...", "source": "url"}],
     "careers_url": "url"|null, "ats": {"provider": "greenhouse|lever|ashby"|null, "slug": "string"|null}
   },
   "scores": {

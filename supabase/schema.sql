@@ -27,6 +27,8 @@ create table if not exists companies (
   gtm_motion    text[],        -- sales_led | plg | fde | channel | paid_acquisition
   pricing_model text[],        -- seat | usage | outcome | subscription | transaction | ads | hardware
   sponsors_visas text default 'unknown', -- yes | likely | unknown | no
+  ltv_phase     text,          -- cvp_fit | gtm_fit | bm_fit | scaling (LTV master table)
+  playbook      text,          -- network | marketplace | sales_led_saas | plg_saas | api_platform | b2c_paid | hardware | services_as_software
   facts         jsonb,         -- full facts object from the latest evaluation
   facts_as_of   text,          -- YYYY-MM of freshest source
   list_snapshot jsonb,         -- original Rocketship List values (kept for provenance; list data can be stale)

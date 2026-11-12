@@ -44,6 +44,8 @@ export function factsToCompanyUpdate(f: Facts, existing: CompanyRow = {}) {
     gtm_motion: f.gtm_motion ?? null,
     pricing_model: f.pricing_model ?? null,
     sponsors_visas: f.sponsors_visas ?? "unknown",
+    ltv_phase: f.ltv_phase ?? null,
+    playbook: f.playbook ?? null,
     careers_url: f.careers_url ?? null,
     ats_provider: f.ats?.provider ?? (existing.ats_provider as string | null) ?? null,
     ats_slug: f.ats?.slug ?? (existing.ats_slug as string | null) ?? null,

@@ -1,4 +1,4 @@
-# Scoring Framework (v2.1): how The Next 10x Joiner applies LTV
+# Scoring Framework (v2.2): how The Next 10x Joiner applies LTV
 
 *Last updated Nov 10, 2026. The code lives in `lib/rubric.ts` (dimensions, prompt), `lib/scoring.ts` (math), `lib/filters.ts` (preferences) and `lib/facts.ts` (plain facts).*
 
@@ -30,7 +30,7 @@ The weights follow the course's sequencing logic (*CVP fit → GTM fit → BM fi
 | # | Dimension | The one question | LTV anchors | Weight |
 |---|---|---|---|---|
 | 1 | **Market, wave & expansion path** | Is the market big, on a real wave, with a path from beachhead to more? | Rachleff's Law; TAM/SAM/SOM bottom-up; Vernal market curve; catching the wave; **bowling pins / lily pads** (C16, Squire, Sprout); Idea Maze | 10 |
-| 2 | **PMF level & customer love (HUNCH)** | How far along the PMF levels is it, and is it a must-have? | First Round Levels (Nascent→Extreme); Balfour's 4 checks; **HUNCH**; Sean Ellis 40%; toothbrush test; "usage leads, churn lags" | 15 |
+| 2 | **PMF, job-to-be-done & customer love (HUNCH)** | What job is the customer hiring it for, is it 10x better than the substitute, and how far along the PMF levels is it? | **Jobs to Be Done** (Forces of Progress); hair-on-fire + **10x better** (Seibel, Thiel); First Round Levels; Balfour's 4 checks; **HUNCH**; Sean Ellis 40%; toothbrush test; "usage leads, churn lags"; Crossing the Chasm false positives | 15 |
 | 3 | **Growth momentum** *(new)* | How fast is it growing now, and is growth accelerating? | **T2D3** (Battery) and **Q2T3** (Bessemer); Supernova vs Shooting Star curves; Sales Learning Curve ("AI only scales what already works"); cohort expansion (Sprout) | 10 |
 | 4 | **Moat** | If a funded competitor copied it tomorrow, what still protects it? | Helmer's 7 Powers; AI-era moats (memory, workflow, "hidden work"); jobs as moats; avoiding the GPT wrapper (Summer Health) | 10 |
 | 5 | **Competitive position** | Winning its category, or stuck in a red ocean? | Blue Ocean; Wiz "blue ocean inside the red"; XYZ Robotics; Sierra vs Decagon | 10 |
@@ -39,7 +39,7 @@ The weights follow the course's sequencing logic (*CVP fit → GTM fit → BM fi
 | 8 | **Gatekeeper & platform independence** | Does a partner, platform, channel or model provider control its fate? | **"Beware gatekeepers"** (Sweet 16 #7); Comun/Unit; TurbineOne/the prime; Blitzy/SIs; AllSpice/procurement; rope-a-dope | 5 |
 | 9 | **Key risks retired** *(new)* | Which big risks (tech, market, GTM, model, regulatory, financing) are behind it, and how bad is the biggest one left? | **C16 Bio** (retire the biggest risk first); "test selection is strategy"; Lean Startup; tough tech as "the sport of kings" (XYZ); Blank's "valley of death" | 5 |
 | 10 | **Capital strategy & efficiency** | Funded well for its plan, and efficient rather than scaling prematurely? | Paley; **premature scaling** (Startup Genome; Chief); seedstrapping (BoldVoice); Investor-Market Fit; VC treadmill (XYZ); revenue per employee | 5 |
-| 11 | **Team, FMF & velocity** | Do the founders have an earned secret and the speed to out-execute? | Earned secrets (Tavel); founder-market fit and the FMF trap; **Founder Velocity score** (Wiz); "burn the boats"; Bardin | 10 |
+| 11 | **Team, FMF & 10x org** | Do the founders have an earned secret, the speed to out-execute, and an AI-native organization? | Earned secrets (Tavel); founder-market fit and the FMF trap; **Founder Velocity score** (Wiz); **10x org = AI brain + harness + process** (Sweet 16 #13; "Blitzy building Blitzy"); talent density; "burn the boats"; Bardin | 10 |
 | 12 | **AI positioning** | Does AI make it stronger, or is it about to be disrupted? | Copilot vs autopilot (Sequoia); system of record → intelligence (a16z); Supernova vs Shooting Star; Summer Health | 5 |
 
 ### What changed from v1, and why
@@ -52,6 +52,11 @@ The weights follow the course's sequencing logic (*CVP fit → GTM fit → BM fi
 - **Competition kept at 10** (team decision). Most of the list is in crowded AI categories, so position against rivals matters a lot to a joiner.
 - **New: Growth momentum.** PMF measures *level* (how far along); growth measures *rate* (how fast, and whether it's accelerating). T2D3 and Q2T3 are explicit course benchmarks, and two companies at the same ARR can be on very different trajectories.
 - **New: Key risks retired.** From C16: sequence experiments to retire the biggest risk first. This separates a deep-tech company with an unproven core technology from a SaaS company whose only open risk is execution, which matters for tough tech on the list (Nuro, Impulse Space, Mendaera).
+
+### v2.2 additions from the course-coverage audit
+- **JTBD folded into PMF.** Jobs to Be Done was a whole course brief and Sweet 16 lesson #2, but v2.1 only mentioned "jobs as moats". PMF now starts from the job and asks whether the product is 10x better than the closest substitute (Sweet 16 #3). It also warns against early-adopter false positives (Crossing the Chasm).
+- **The 10x org folded into Team** (Module 4; Sweet 16 #13): is the company itself AI-native, with high output per person?
+- **New facts (shown, not scored):** **LTV phase**, the master-table position (CVP fit → GTM fit → BM fit → scaling) with one line of evidence; **playbook** (Module 3: network, marketplace, sales-led SaaS, PLG, API platform, B2C paid ...); and **employee liquidity events** (tender offers, secondaries; Module 6). Liquidity matters a lot to joiners: Decagon's March 2026 tender offer let 300+ employees sell.
 
 ### Considered and deliberately left out
 - **"Alignment" across CVP/GTM/BM/team/financing** (Module 3): it's real, but too hard to judge from outside the company. It shows up instead in rationales (e.g. a GTM motion that mismatches ACV).
