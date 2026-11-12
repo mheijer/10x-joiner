@@ -1,174 +1,330 @@
-// The LTV evaluation rubric: the single source of truth for how companies are scored.
+// The LTV evaluation rubric (v2): the single source of truth for how companies are scored.
 // Used by the seed script (batch) and the API (user-added companies).
-// To change how we judge companies, change THIS file and re-run evaluations.
+// Rationale for every dimension and its course anchors: docs/SCORING_FRAMEWORK.md
+//
+// Three layers:
+//   1. "winning" dimensions  → Probability of Winning (0-100): "Is this a great company?" (12 weighted, user-adjustable)
+//   2. "joiner" dimensions   → Joiner Upside (0-100): "Is joining it, now, a great deal for me?"
+//   3. red flags             → shown to the user; penalizing them is the user's choice (LTV Module 5)
+// Plus plain facts (headcount, ARR, customer type, ...) used for filters and personal fit.
 
-export type DimensionKey =
+export type WinningKey =
   | "market"
   | "pmf"
+  | "growth"
   | "moat"
   | "competition"
-  | "hunch"
   | "business_model"
+  | "gtm"
+  | "independence"
+  | "risk_retirement"
   | "capital"
   | "team"
-  | "gtm"
   | "ai_positioning";
+export type JoinerKey = "valuation_headroom" | "career_velocity";
+export type DimensionKey = WinningKey | JoinerKey;
 
 export interface Dimension {
   key: DimensionKey;
+  group: "winning" | "joiner";
   label: string;
-  courseAnchor: string;
-  defaultWeight: number; // weights sum to 100
-  // What a 1, 3 and 5 look like. Keeps scores consistent across 500+ companies.
+  question: string; // the one question this dimension answers
+  courseAnchor: string; // frameworks + cases from LTV
+  defaultWeight: number; // within its group; winning weights sum to 100
   scale: { 1: string; 3: string; 5: string };
 }
 
 export const DIMENSIONS: Dimension[] = [
+  // ---------------------------------------------------------------- Probability of Winning
   {
     key: "market",
-    label: "Market size & wave",
-    courseAnchor: "TAM/SAM/SOM, Vernal market curve, Rachleff's Law, catching the wave",
-    defaultWeight: 15,
+    group: "winning",
+    label: "Market, wave & expansion path",
+    question: "Is the market big, riding a real wave, and is there a credible path from beachhead to bigger markets?",
+    courseAnchor:
+      "Rachleff's Law (Andreessen); TAM/SAM/SOM bottom-up; Vernal market curve; catching the wave; bowling pins / lily pads (C16, Squire, Sprout); Idea Maze",
+    defaultWeight: 10,
     scale: {
-      1: "Small or shrinking market; no tailwind",
-      3: "Solid multi-$B market growing steadily",
-      5: "Massive market riding a major wave (e.g. AI platform shift); market pulls product",
+      1: "Small or shrinking market, no tailwind, no visible expansion path",
+      3: "Multi-$B market growing steadily; plausible adjacent expansion",
+      5: "Massive market on a major wave; clear bowling-pin path to adjacent products/segments",
     },
   },
   {
     key: "pmf",
-    label: "Product-market fit level",
-    courseAnchor: "First Round Levels of PMF; Balfour's 4 checks; Sean Ellis 40%",
+    group: "winning",
+    label: "PMF, job-to-be-done & customer love (HUNCH)",
+    question: "What job is the customer hiring it for, is it 10x better than the substitute, and how far along the PMF levels is it?",
+    courseAnchor:
+      "Jobs to Be Done (the job, not the demographic; Forces of Progress: push + pull must beat anxiety + habit); hair-on-fire and 10x better than the closest substitute (Seibel, Thiel); First Round Levels of PMF (Nascent → Extreme); Balfour's 4 checks; HUNCH (hair on fire, usage, NPS, churn, high WTP); Sean Ellis 40%; Page toothbrush test; 'usage leads, churn lags'; Crossing the Chasm (early-adopter love can be a false positive)",
     defaultWeight: 15,
     scale: {
-      1: "Nascent: few paying customers, unclear retention",
-      3: "Developing/Strong: ~$5-25M ARR or equivalent, healthy retention signals",
-      5: "Extreme: $25M+ ARR or hypergrowth, customers buy faster than company can deliver",
+      1: "Nascent: unclear job, few paying customers, weak usage or retention; or only early adopters so far",
+      3: "Developing/Strong: clear job, ~$5-25M ARR (or equivalent), real pain, healthy retention beyond early adopters",
+      5: "Extreme: a hair-on-fire job done 10x better; $25M+ ARR or hypergrowth; customers buy faster than it can deliver",
+    },
+  },
+  {
+    key: "growth",
+    group: "winning",
+    label: "Growth momentum",
+    question: "How fast are revenue, customers and usage growing right now, and is growth accelerating or slowing? (Funding pace can corroborate, but not replace, customer growth.)",
+    courseAnchor:
+      "T2D3 (Battery) and Q2T3 (Bessemer State of AI); Supernova vs Shooting Star growth curves; Sales Learning Curve (AI compresses it, but 'only scales what already works'); First Round 'Demand' and 'Efficiency' axes; cohort expansion (Sprout NDR >150%)",
+    defaultWeight: 10,
+    scale: {
+      1: "Flat or shrinking; growth decelerating sharply",
+      3: "On a T2D3 pace (~3x/year early, ~2x later) with steady momentum",
+      5: "Ahead of Q2T3 / Supernova pace and still accelerating",
     },
   },
   {
     key: "moat",
+    group: "winning",
     label: "Moat / defensibility",
-    courseAnchor: "Helmer's 7 Powers; AI-era moats (memory, workflow, hidden work); jobs as moats",
+    question: "If a well-funded competitor copied the product tomorrow, what would still protect this company?",
+    courseAnchor:
+      "Helmer's 7 Powers (benefit + barrier); AI-era moats: memory/context, workflow ownership, 'hidden work' (a16z systems of intelligence); jobs-to-be-done as moats; avoiding the 'GPT wrapper' (Summer Health)",
     defaultWeight: 10,
     scale: {
-      1: "Feature or thin wrapper; easily copied",
-      3: "Some switching costs or data advantage",
-      5: "Multiple powers (network effects, switching costs, cornered resource, scale)",
+      1: "A feature or thin wrapper; easily copied",
+      3: "Some switching costs, proprietary data or workflow lock-in",
+      5: "Multiple powers (network effects, switching costs, cornered resource, scale economies)",
     },
   },
   {
     key: "competition",
-    label: "Competitive intensity (blue vs red ocean)",
-    courseAnchor: "Blue Ocean Strategy; Wiz 'blue ocean inside the red ocean'",
+    group: "winning",
+    label: "Competitive position (blue vs red ocean)",
+    question: "Is it winning its category, or fighting in a bloody red ocean without a wedge?",
+    courseAnchor: "Blue Ocean Strategy (Kim & Mauborgne); Wiz 'blue ocean inside the red ocean'; XYZ Robotics (commoditized red ocean)",
     defaultWeight: 10,
     scale: {
-      1: "Bloody red ocean vs. well-funded incumbents with no clear wedge",
-      3: "Crowded but with a clear differentiated position",
-      5: "Category leader or effectively uncontested space",
-    },
-  },
-  {
-    key: "hunch",
-    label: "HUNCH (hair on fire, usage, NPS, churn, WTP)",
-    courseAnchor: "Bussgang's HUNCH; Seibel hair-on-fire; Page toothbrush test",
-    defaultWeight: 10,
-    scale: {
-      1: "Nice-to-have; weak usage or willingness to pay",
-      3: "Real pain, regular usage, decent retention",
-      5: "Hair-on-fire must-have, daily usage, beloved, high WTP",
+      1: "Red ocean vs well-funded incumbents, no clear wedge",
+      3: "Crowded but clearly differentiated; top-3 position",
+      5: "Clear category leader or effectively uncontested space",
     },
   },
   {
     key: "business_model",
-    label: "Business model quality",
-    courseAnchor: "10x club vs 6-8x vs 2-3x tiers; NDR >100%; gross margin; magical elements",
-    defaultWeight: 10,
+    group: "winning",
+    label: "Business model & unit economics",
+    question: "Does each customer make money, and does the model get better with scale?",
+    courseAnchor:
+      "Business model tiers (10x club / 6-8x / 2-3x); magical elements (NDR >100%, high GM, network effects); LTV/CAC done right by cohort & channel (Comun: 'average numbers are trash'); 'free pies' (PMF isn't complete until BM works); Supernova vs Shooting Star margins (Bessemer); Fazeshift pricing ladder",
+    defaultWeight: 8,
     scale: {
-      1: "Low margin, one-time or ad revenue, worsens with scale (2-3x tier)",
-      3: "Recurring subscription/transaction, moderate margins (6-8x tier)",
-      5: "High GM, NDR >120%, network effects, improves with scale (10x club)",
-    },
-  },
-  {
-    key: "capital",
-    label: "Capital & momentum",
-    courseAnchor: "Round step-ups, runway, Paley 'VC is a hell of a drug', premature scaling",
-    defaultWeight: 10,
-    scale: {
-      1: "Struggling to raise, flat/down rounds, short runway",
-      3: "Raised recently at a reasonable step-up; adequate runway",
-      5: "Top-tier investors pre-empting rounds at large step-ups; long runway",
-    },
-  },
-  {
-    key: "team",
-    label: "Team / founder-market fit",
-    courseAnchor: "Earned secrets, founder-market fit (and the FMF trap), founder velocity",
-    defaultWeight: 10,
-    scale: {
-      1: "No evident domain edge; high turnover",
-      3: "Credible founders with relevant experience",
-      5: "Repeat/exceptional founders with an earned secret and proven velocity",
+      1: "Low/negative margins, one-time or ad revenue, worsens with scale (2-3x tier)",
+      3: "Recurring revenue, moderate margins, decent payback (6-8x tier)",
+      5: "High GM, NDR >120%, short payback, improves with scale (10x club)",
     },
   },
   {
     key: "gtm",
-    label: "Go-to-market fit",
-    courseAnchor: "Elephants/deer/mice (ACV vs sales model), Sales Learning Curve, PLG trap",
+    group: "winning",
+    label: "GTM fit & ICP focus",
+    question: "Does it know exactly who it sells to, and does its sales motion match its price point?",
+    courseAnchor:
+      "'Your ICP is your destiny' / narrow beachhead; ACV vs sales model (elephants, deer, mice); Sales Learning Curve phases; PLG trap (Bussgang & Jay; AllSpice, ElevenLabs); forward-deployed engineers (Blitzy); Clay's ICP commitment",
+    defaultWeight: 7,
+    scale: {
+      1: "Fuzzy ICP; motion mismatched to ACV; no repeatable channel",
+      3: "Clear ICP; motion fits ACV; early repeatability",
+      5: "Sharp ICP with a proven, scaling engine (multiple motions, strong sales yield)",
+    },
+  },
+  {
+    key: "independence",
+    group: "winning",
+    label: "Gatekeeper & platform independence",
+    question: "Does a partner, platform, channel or model provider control this company's fate?",
+    courseAnchor:
+      "'Beware gatekeepers' (Sweet 16 #7); Comun on Unit/BaaS; TurbineOne via the defense prime; Blitzy and systems integrators; AllSpice and enterprise procurement; 'rope-a-dope' partner strategy; dependence on frontier model providers",
     defaultWeight: 5,
     scale: {
-      1: "Sales motion mismatched to ACV; no repeatable channel",
-      3: "Motion fits ACV; early repeatability",
-      5: "Proven, scaling engine (multiple motions, strong sales yield)",
+      1: "One partner/platform/channel can cut it off or squeeze its economics",
+      3: "Meaningful dependencies with credible alternatives or a plan to own the stack",
+      5: "Owns its customer relationship, stack and distribution",
+    },
+  },
+  {
+    key: "risk_retirement",
+    group: "winning",
+    label: "Key risks retired",
+    question: "Which of the big risks (technology, market, GTM, business model, regulatory, financing) are already behind it, and how dangerous is the biggest one left?",
+    courseAnchor:
+      "C16 Bio (sequence experiments to retire the biggest risk first: science, techno-economic, PMF, scaling, financing); 'test selection is strategy'; Lean Startup (validate every key hypothesis before scaling); tough tech as 'the sport of kings' (XYZ Robotics); Steve Blank's defense 'valley of death'",
+    defaultWeight: 5,
+    scale: {
+      1: "Existential risks still open (unproven technology, regulatory approval, or no business model yet)",
+      3: "Core technology and demand proven; scaling, business model or regulatory risk remains",
+      5: "Technology, demand, GTM and economics all proven; remaining risks are ordinary execution",
+    },
+  },
+  {
+    key: "capital",
+    group: "winning",
+    label: "Capital strategy & efficiency",
+    question: "Is it funded well for its plan, and is it efficient rather than scaling prematurely?",
+    courseAnchor:
+      "Paley 'VC is a hell of a drug' (value per dollar raised); premature scaling (Startup Genome ~70%; Chief 'blitzflailing'); seedstrapping (BoldVoice: $10M ARR with 7 people); Investor-Market Fit; VC treadmill (XYZ Robotics); revenue per employee",
+    defaultWeight: 5,
+    scale: {
+      1: "Struggling to raise, flat/down rounds, short runway, or burning far ahead of traction",
+      3: "Raised recently at a sensible step-up; adequate runway; spend roughly matches traction",
+      5: "Top-tier investors pre-empting at big step-ups AND efficient (high revenue per employee, long runway)",
+    },
+  },
+  {
+    key: "team",
+    group: "winning",
+    label: "Team, founder-market fit & 10x org",
+    question: "Do the founders have an earned secret, the speed to out-execute, and an AI-native '10x organization'?",
+    courseAnchor:
+      "Earned secrets (Tavel); founder-market fit and the FMF trap; Founder Velocity score (Wiz deck: build speed, experimentation velocity, customer-loop speed, leverage); 10x org = AI brain + harness + process (Sweet 16 #13; 'Blitzy building Blitzy'); talent density (Who Method); courage to pivot ('burn the boats'); early-stage CEO's job (Bardin)",
+    defaultWeight: 10,
+    scale: {
+      1: "No evident domain edge; key departures",
+      3: "Credible founders with relevant experience",
+      5: "Exceptional/repeat founders with an earned secret, proven velocity, and an AI-native org (high output per person)",
     },
   },
   {
     key: "ai_positioning",
+    group: "winning",
     label: "AI positioning",
-    courseAnchor: "Copilot vs autopilot ('services as software'); Supernova vs Shooting Star; systems of intelligence",
+    question: "Does AI make this company stronger, or is it about to be disrupted by AI?",
+    courseAnchor:
+      "Services as software: copilot vs autopilot (Sequoia); system of record → system of intelligence (a16z); Supernova vs Shooting Star (Bessemer); Summer Health (AI-first vs AI-enhanced); 'AI increases output, not taste'",
     defaultWeight: 5,
     scale: {
-      1: "Likely disrupted by AI; no AI strategy",
+      1: "Likely disrupted by AI; no credible AI strategy",
       3: "AI-enhanced product (copilot)",
       5: "AI-native, sells outcomes (autopilot) or owns a key layer of the AI stack",
     },
   },
+
+  // ---------------------------------------------------------------- Joiner Upside
+  {
+    key: "valuation_headroom",
+    group: "joiner",
+    label: "Valuation headroom",
+    question: "At today's valuation, is there still room for a joiner's equity to multiply?",
+    courseAnchor:
+      "Valuation equation (TAM × penetration × profitability × multiple); business model tiers set the multiple; Paley (big valuations raise the exit bar); Chief ('we raised so much because we could'); Supernova fragility",
+    defaultWeight: 50,
+    scale: {
+      1: "Priced for perfection: very high multiple vs growth and model quality; little room to 10x",
+      3: "Fair price for its growth; 3-5x upside plausible in a good outcome",
+      5: "Underpriced vs traction and market; 10x+ from here is plausible",
+    },
+  },
+  {
+    key: "career_velocity",
+    group: "joiner",
+    label: "Career velocity",
+    question: "Will a new joiner get scope, learning and a résumé-making experience here?",
+    courseAnchor:
+      "10x Joiner workshop (own metrics, optimize for learning, ride the AI wave); org stages (family → tribe → village → city, Hoffman); 'avoid titles early'; FDE / GTM engineer roles; talent density",
+    defaultWeight: 50,
+    scale: {
+      1: "Stalled or shrinking; narrow roles; talent leaving",
+      3: "Growing steadily; reasonable scope for new hires",
+      5: "Hypergrowth headcount, high talent density, big scope early",
+    },
+  },
 ];
 
-export const DEFAULT_WEIGHTS: Record<DimensionKey, number> = Object.fromEntries(
-  DIMENSIONS.map((d) => [d.key, d.defaultWeight]),
-) as Record<DimensionKey, number>;
+export const WINNING_DIMENSIONS = DIMENSIONS.filter((d) => d.group === "winning");
+export const JOINER_DIMENSIONS = DIMENSIONS.filter((d) => d.group === "joiner");
+
+export const DEFAULT_WEIGHTS = Object.fromEntries(WINNING_DIMENSIONS.map((d) => [d.key, d.defaultWeight])) as Record<
+  WinningKey,
+  number
+>;
+
+// ---------------------------------------------------------------- red flags (LTV Module 5)
+export type RedFlagType =
+  | "governance_ethics" // fraud, regulatory action, misconduct (Rothenberg, Griffith 'one bad apple')
+  | "overstated_metrics" // claims that don't hold up ('foie gras effect')
+  | "leadership_exodus"
+  | "layoffs_or_down_round"
+  | "legal_or_regulatory"
+  | "customer_or_partner_concentration";
+export type Severity = "low" | "medium" | "high";
+export interface RedFlag {
+  type: RedFlagType;
+  severity: Severity;
+  detail: string;
+  source: string | null;
+}
+
+// ---------------------------------------------------------------- facts (filters + fit)
+export interface Facts {
+  as_of?: string | null; // YYYY-MM of the freshest source used
+  stage?: string | null;
+  founded_year?: number | null;
+  hq_city?: string | null; // "City, ST"
+  office_locations?: string[];
+  work_policy?: "onsite" | "hybrid" | "remote" | "unknown" | null;
+  headcount_estimate?: number | null;
+  headcount_growth_12m_pct?: number | null;
+  total_funding_usd?: number | null;
+  latest_post_money_usd?: number | null;
+  post_money_is_estimate?: boolean;
+  arr_estimate_usd?: number | null;
+  arr_as_of?: string | null;
+  arr_is_estimate?: boolean;
+  funding_rounds?: {
+    round: string;
+    date?: string | null; // YYYY-MM or YYYY-MM-DD
+    amount_usd?: number | null;
+    post_money_usd?: number | null;
+    lead_investors?: string[];
+    source?: string | null;
+  }[];
+  top_investors?: string[];
+  customer_type?: ("enterprise" | "mid_market" | "smb" | "consumer" | "government")[]; // market curve position
+  business_type?: "b2b" | "b2c" | "b2b2c" | "marketplace" | null;
+  gtm_motion?: ("sales_led" | "plg" | "fde" | "channel" | "paid_acquisition")[];
+  pricing_model?: ("seat" | "usage" | "outcome" | "subscription" | "transaction" | "ads" | "hardware")[];
+  founders?: { name: string; background: string; repeat_founder: boolean }[];
+  notable_customers?: string[];
+  competitors?: string[];
+  sponsors_visas?: "yes" | "likely" | "unknown" | "no";
+  // Where it sits on the LTV master table: which fit it has proven, and which experiment it's running now.
+  ltv_phase?: "cvp_fit" | "gtm_fit" | "bm_fit" | "scaling" | null;
+  ltv_phase_evidence?: string | null;
+  playbook?: "network" | "marketplace" | "sales_led_saas" | "plg_saas" | "api_platform" | "b2c_paid" | "hardware" | "services_as_software" | "other" | null;
+  liquidity_events?: { type: "tender_offer" | "secondary" | "acquisition_offer" | "ipo_filing"; date?: string | null; detail: string; source?: string | null }[];
+  careers_url?: string | null;
+  ats?: { provider: "greenhouse" | "lever" | "ashby" | null; slug: string | null } | null;
+}
 
 export type Confidence = "low" | "medium" | "high";
 
 export interface DimensionScore {
-  score: number; // 1-5
+  score: number; // 1-5 (half points allowed)
   confidence: Confidence;
   rationale: string;
   sources: string[]; // URLs
 }
 
+export interface PmfEvidence {
+  type: "revenue" | "demand" | "retention" | "usage" | "organic_pull" | "pricing_power" | "investor_signal";
+  signal: string;
+  value: string;
+  as_of?: string | null;
+  source?: string | null;
+}
+
 export interface EvaluationResult {
-  summary: string; // 1-2 sentence "why this company matters"
-  facts: {
-    stage?: string | null;
-    headcount_estimate?: number | null;
-    hq_city?: string | null;
-    total_funding_usd?: number | null;
-    latest_post_money_usd?: number | null;
-    post_money_is_estimate?: boolean;
-    funding_rounds?: {
-      round: string;
-      date?: string | null; // YYYY-MM or YYYY-MM-DD
-      amount_usd?: number | null;
-      post_money_usd?: number | null;
-      source?: string | null;
-    }[];
-    careers_url?: string | null;
-    ats?: { provider: "greenhouse" | "lever" | "ashby" | null; slug: string | null } | null;
-  };
+  summary: string;
+  pmf_evidence: PmfEvidence[]; // non-funding evidence behind the PMF and growth scores
+  facts: Facts;
   scores: Record<DimensionKey, DimensionScore>;
+  red_flags: RedFlag[];
+  conflicts: string[]; // places where sources disagreed, and which one we used
 }
 
 export interface CompanyInput {
@@ -178,67 +334,129 @@ export interface CompanyInput {
   industry?: string | null;
   hq_location?: string | null;
   founded_year?: number | string | null;
-  employees?: number | string | null;
-  total_funding_musd?: number | string | null;
 }
+// Note: the Rocketship List's employee and funding numbers are deliberately NOT passed to the model.
+// The list is out of date and anchors the model on wrong figures; it is used only to identify the company.
 
-export const SYSTEM_PROMPT = `You are a venture analyst trained in Harvard Business School's "Launching Tech Ventures" (LTV) course.
-You evaluate startups for MBA students deciding which companies to join.
-Be directionally right, concise and honest. Prefer recent sources (last 12 months). Never invent numbers:
-if a figure is unknown, estimate it only where asked and mark it as an estimate, or return null.
-Score each dimension 1-5 using the anchors provided, and calibrate across companies: a 5 should be rare.`;
+export const SYSTEM_PROMPT = `You are a venture analyst trained in Harvard Business School's "Launching Tech Ventures" (LTV) course
+(Profs. Jeff Bussgang and Allison Mnookin). You evaluate startups for MBA students deciding which companies to join.
 
-export function buildEvaluationPrompt(c: CompanyInput): string {
+Principles:
+- Be directionally right, concise and honest. Score with the anchors given; a 5 should be rare and earned.
+- Never invent numbers. If unknown, return null. If you estimate, set the matching *_is_estimate flag.
+- Calibration reference: Sierra (AI customer-service agents, $400M+ ARR ~2.5 years after launch, $15.8B valuation in May 2026)
+  scores 5 on PMF and market; a pre-revenue seed company scores 1-2 on PMF.
+
+Source rules (most to least trusted):
+  1. Primary: the company's own site/blog/press releases, SEC filings, founder statements on record.
+  2. Tier-1 press: TechCrunch, Bloomberg, Reuters, WSJ, The Information, CNBC, Axios, Forbes.
+  3. Research firms: Sacra, PitchBook/Crunchbase news, CB Insights.
+  4. Aggregators and SEO/AI-generated pages: use only if nothing better exists, and mark figures as estimates.
+- When sources disagree (e.g. round names, valuations, ARR, total funding), prefer the most recent primary or tier-1 source,
+  and record the disagreement in "conflicts". Treat figures that are internally inconsistent (e.g. a growth rate that
+  doesn't match the stated ARR history) as unreliable.
+
+Confidence means "how sure am I of this score", not "how much data exists":
+- Evidence of absence is evidence. A company that is pre-revenue or just starting commercial launch scores 1-2 on PMF
+  and growth with MEDIUM or HIGH confidence. Do not mark it low-confidence just because there is no revenue to report.
+- Use LOW confidence only when you genuinely could not find enough information to judge either way.
+- Total funding: when sources report different cumulative totals, use the LARGEST credible figure. Totals only grow
+  over time, so the larger number usually reflects more recent rounds. Note the smaller figures in "conflicts".
+  (Exception: exclude debt facilities and grants if a source clearly labels them as such.)
+- Research every number yourself and note the date of your freshest source (as_of).
+
+Funding is supporting evidence for product-market fit, never the only evidence (team rule):
+- Funding shows what investors believe; PMF is what customers do. Investors can be wrong (the "TechCrunch false
+  positive"; Chief raised $100M+ and later shrank). But the PACE of funding carries real information: rounds coming
+  quickly, investors pre-empting, or valuations stepping up fast often reflect metrics investors saw privately.
+- For "pmf" and "growth", lead with customer evidence and the measured signals provided. You may add funding pace
+  (time between rounds, pre-emptive rounds, step-ups) as ONE supporting signal of type "investor_signal".
+- Record at least 3 PMF signals in "pmf_evidence", at least 2 of them customer-side (not "investor_signal").
+  Without 2 customer-side signals, "pmf" is capped at 3 and gets LOW confidence; say what was missing.
+- Round sizes and investor names on their own (without pace) belong only in "capital" and "valuation_headroom".`;
+
+export function buildEvaluationPrompt(c: CompanyInput, measuredSignals = ""): string {
   const known = [
     `Name: ${c.name}`,
     c.website && `Website: ${c.website}`,
     c.industry && `Industry: ${c.industry}`,
     c.hq_location && `HQ: ${c.hq_location}`,
     c.founded_year && `Founded: ${c.founded_year}`,
-    c.employees && `Employees (from list): ${c.employees}`,
-    c.total_funding_musd && `Total funding (from list): $${c.total_funding_musd}M`,
     c.description && `Description: ${c.description}`,
   ]
     .filter(Boolean)
     .join("\n");
 
-  const rubric = DIMENSIONS.map(
-    (d) =>
-      `- "${d.key}" — ${d.label} (course anchor: ${d.courseAnchor})\n    1 = ${d.scale[1]}\n    3 = ${d.scale[3]}\n    5 = ${d.scale[5]}`,
-  ).join("\n");
+  const rubric = (dims: Dimension[]) =>
+    dims
+      .map(
+        (d) =>
+          `- "${d.key}": ${d.label}. ${d.question}\n    Course anchors: ${d.courseAnchor}\n    1 = ${d.scale[1]}\n    3 = ${d.scale[3]}\n    5 = ${d.scale[5]}`,
+      )
+      .join("\n");
 
-  return `Evaluate this startup.
+  const scoreLine = (d: Dimension) =>
+    `"${d.key}": {"score": 1-5, "confidence": "low|medium|high", "rationale": "1-2 sentences citing specific evidence", "sources": ["url"]}`;
 
-## What we already know
+  return `Evaluate this startup for an MBA student considering joining it.
+
+## Company identity (from the Rocketship List; use only to identify the company, research every fact yourself)
 ${known}
 
-## Research
-Use web search (company site, TechCrunch, funding announcements, press, careers page) to find:
-recent funding rounds and valuation, revenue/ARR or growth signals, customers, competitors, headcount, and leadership.
-Also find the careers page and whether it is hosted on Greenhouse (boards.greenhouse.io/<slug> or job-boards.greenhouse.io/<slug>),
-Lever (jobs.lever.co/<slug>) or Ashby (jobs.ashbyhq.com/<slug>).
+${measuredSignals}
+## Research (use web search)
+Start with what CUSTOMERS do, not what investors do. Find, in this order:
+1. Customer evidence (for PMF and growth): ARR/revenue and its growth over time (is it accelerating?); number of customers
+   and how it's changing; named customers and published results (case studies with numbers); expansion within accounts,
+   renewals, multi-year contracts; review-site ratings and volume (G2, Capterra, TrustRadius, App Store); community size and
+   word of mouth (users bringing it to new jobs, agencies or partners built on it); usage signals (downloads, traffic,
+   GitHub stars); pricing power (price increases that stuck, paid conversion).
+2. Then everything else: latest funding rounds and valuation; headcount and its growth over the last year;
+customers and who buys (enterprise/SMB/consumer); pricing model and sales motion; competitors; founders' backgrounds;
+key dependencies (platforms, partners, channels, model providers); any red flags (lawsuits, regulatory action,
+layoffs, down rounds, leadership departures, disputed metrics); work policy and office locations;
+whether it sponsors work visas (e.g. H-1B filings); any employee liquidity (tender offers, secondaries);
+which LTV phase it's in (CVP fit = proving customers love it; GTM fit = proving repeatable acquisition;
+BM fit = proving profitable unit economics; scaling = all three proven); and the careers page. Note whether the careers page is on
+Greenhouse (boards.greenhouse.io/<slug> or job-boards.greenhouse.io/<slug>), Lever (jobs.lever.co/<slug>) or Ashby (jobs.ashbyhq.com/<slug>).
 
-## Rubric (score each 1-5)
-${rubric}
+## Probability of Winning ("is this a great company?"): score each 1-5
+${rubric(WINNING_DIMENSIONS)}
+
+## Joiner Upside ("is joining now a great deal for a new hire?"): score each 1-5
+${rubric(JOINER_DIMENSIONS)}
 
 ## Output
 Return ONLY a JSON object (no markdown fences) with exactly this shape:
 {
-  "summary": "1-2 sentences on what the company does and why it could (or could not) be a 10x company",
+  "summary": "1-2 sentences: what it does and why it could (or could not) be a 10x company",
   "facts": {
-    "stage": "Seed | Series A | Series B | Series C | Series D+ | Growth | Public | Acquired",
-    "headcount_estimate": number | null,
-    "hq_city": "City, ST" | null,
-    "total_funding_usd": number | null,
-    "latest_post_money_usd": number | null,
-    "post_money_is_estimate": boolean,
-    "funding_rounds": [{"round": "Series B", "date": "2025-06", "amount_usd": 100000000, "post_money_usd": 1000000000, "source": "url"}],
-    "careers_url": "url" | null,
-    "ats": {"provider": "greenhouse" | "lever" | "ashby" | null, "slug": "string" | null}
+    "as_of": "YYYY-MM", "stage": "Seed | Series A | Series B | Series C | Series D+ | Growth | Public | Acquired",
+    "founded_year": number|null, "hq_city": "City, ST"|null, "office_locations": ["City, ST"],
+    "work_policy": "onsite|hybrid|remote|unknown",
+    "headcount_estimate": number|null, "headcount_growth_12m_pct": number|null,
+    "total_funding_usd": number|null, "latest_post_money_usd": number|null, "post_money_is_estimate": boolean,
+    "arr_estimate_usd": number|null, "arr_as_of": "YYYY-MM"|null, "arr_is_estimate": boolean,
+    "funding_rounds": [{"round": "Series B", "date": "2025-06", "amount_usd": 100000000, "post_money_usd": 1000000000, "lead_investors": ["..."], "source": "url"}],
+    "top_investors": ["..."],
+    "customer_type": ["enterprise|mid_market|smb|consumer|government"],
+    "business_type": "b2b|b2c|b2b2c|marketplace",
+    "gtm_motion": ["sales_led|plg|fde|channel|paid_acquisition"],
+    "pricing_model": ["seat|usage|outcome|subscription|transaction|ads|hardware"],
+    "founders": [{"name": "...", "background": "short", "repeat_founder": boolean}],
+    "notable_customers": ["..."], "competitors": ["..."],
+    "sponsors_visas": "yes|likely|unknown|no",
+    "ltv_phase": "cvp_fit|gtm_fit|bm_fit|scaling", "ltv_phase_evidence": "one line: what it has proven and what it's working on now",
+    "playbook": "network|marketplace|sales_led_saas|plg_saas|api_platform|b2c_paid|hardware|services_as_software|other",
+    "liquidity_events": [{"type": "tender_offer|secondary|acquisition_offer|ipo_filing", "date": "YYYY-MM", "detail": "...", "source": "url"}],
+    "careers_url": "url"|null, "ats": {"provider": "greenhouse|lever|ashby"|null, "slug": "string"|null}
   },
   "scores": {
-    ${DIMENSIONS.map((d) => `"${d.key}": {"score": 1-5, "confidence": "low|medium|high", "rationale": "1-2 sentences citing evidence", "sources": ["url"]}`).join(",\n    ")}
-  }
+    ${DIMENSIONS.map(scoreLine).join(",\n    ")}
+  },
+  "pmf_evidence": [{"type": "revenue|demand|retention|usage|organic_pull|pricing_power|investor_signal", "signal": "what it shows", "value": "the number or fact", "as_of": "YYYY-MM", "source": "url"}],
+  "red_flags": [{"type": "governance_ethics|overstated_metrics|leadership_exodus|layoffs_or_down_round|legal_or_regulatory|customer_or_partner_concentration", "severity": "low|medium|high", "detail": "one line", "source": "url"}],
+  "conflicts": ["e.g. 'Aggregators label the Feb 2024 round Seed vs Series A; used company blog'"]
 }`;
 }
 
@@ -262,5 +480,48 @@ export function parseEvaluation(raw: string): EvaluationResult {
       sources: Array.isArray(s.sources) ? s.sources.filter((u: unknown) => typeof u === "string").slice(0, 5) : [],
     };
   }
-  return { summary: String(obj.summary ?? ""), facts: obj.facts ?? {}, scores };
+  const severities = ["low", "medium", "high"];
+  const red_flags: RedFlag[] = Array.isArray(obj.red_flags)
+    ? obj.red_flags
+        .filter((f: any) => f && typeof f.detail === "string")
+        .map((f: any) => ({
+          type: f.type,
+          severity: severities.includes(f.severity) ? f.severity : "low",
+          detail: f.detail,
+          source: typeof f.source === "string" ? f.source : null,
+        }))
+    : [];
+  const pmf_evidence: PmfEvidence[] = Array.isArray(obj.pmf_evidence)
+    ? obj.pmf_evidence.filter((e: any) => e && typeof e.value === "string" && typeof e.signal === "string").slice(0, 10)
+    : [];
+  enforcePmfEvidenceRule(scores, pmf_evidence);
+  return {
+    summary: String(obj.summary ?? ""),
+    pmf_evidence,
+    facts: obj.facts ?? {},
+    scores,
+    red_flags,
+    conflicts: Array.isArray(obj.conflicts) ? obj.conflicts.map(String) : [],
+  };
+}
+
+/**
+ * Team rule, enforced in code (not just asked of the model): funding pace may support a PMF score but never carry it.
+ * With fewer than 2 customer-side signals, PMF is capped at 3 with low confidence.
+ * Returns true if the cap was applied.
+ */
+export const MIN_CUSTOMER_SIGNALS = 2;
+export const PMF_CAP_WITHOUT_CUSTOMER_EVIDENCE = 3;
+export function enforcePmfEvidenceRule(scores: Record<DimensionKey, DimensionScore>, evidence: PmfEvidence[]): boolean {
+  const customerSide = evidence.filter((e) => e.type !== "investor_signal").length;
+  if (customerSide >= MIN_CUSTOMER_SIGNALS || !scores.pmf) return false;
+  const pmf = scores.pmf;
+  const capped = pmf.score > PMF_CAP_WITHOUT_CUSTOMER_EVIDENCE;
+  scores.pmf = {
+    ...pmf,
+    score: Math.min(pmf.score, PMF_CAP_WITHOUT_CUSTOMER_EVIDENCE),
+    confidence: "low",
+    rationale: `${pmf.rationale} [Capped: only ${customerSide} customer-side PMF signal(s) found; funding alone can't establish PMF.]`.trim(),
+  };
+  return capped || pmf.confidence !== "low";
 }

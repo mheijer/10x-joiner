@@ -1,0 +1,27 @@
+# Build check: runs on every pull request and every push to main.
+# Type-checks the code, runs the logic tests, and builds the app, so broken code is caught before anyone clicks it.
+name: Build check
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-audit --no-fund
+      - name: Logic tests (scoring, equity, fit, filters, jobs)
+        run: npm test
+      - name: Type check
+        run: npx tsc --noEmit
+      - name: Build the app
+        run: npx next build
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"

@@ -5,8 +5,13 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { evaluateCompany } from "@/lib/evaluate";
 import { normalizeUsLocation, geocodeUs } from "@/lib/geocode";
+import { factsToCompanyUpdate } from "@/lib/facts";
+import { joinerUpside } from "@/lib/scoring";
+import { discoverJobs, countByFunction, boardUrl } from "@/lib/jobs";
+import { collectSignals } from "@/lib/signals";
 
 export const maxDuration = 300; // evaluations with web search can take 1-2 minutes
+const MAX_COMPANIES_PER_USER = 3; // each evaluation costs ~$0.18-0.33 (team decision)
 
 export async function POST(req: Request) {
   const db = supabaseAdmin();
@@ -18,6 +23,13 @@ export async function POST(req: Request) {
   const name = String(body.name ?? "").trim();
   const website = String(body.website ?? "").trim() || null;
   if (!name) return NextResponse.json({ error: "name is required" }, { status: 400 });
+
+  const { count } = await db.from("companies").select("id", { count: "exact", head: true }).eq("created_by", auth.user.id);
+  if ((count ?? 0) >= MAX_COMPANIES_PER_USER)
+    return NextResponse.json(
+      { error: `You can add up to ${MAX_COMPANIES_PER_USER} startups. Remove one to add another.` },
+      { status: 429 },
+    );
 
   const domain = website?.toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0] ?? null;
 
@@ -37,20 +49,28 @@ export async function POST(req: Request) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   try {
-    const { result, composite, model } = await evaluateCompany({ name, website, hq_location: hq });
+    const hit = await discoverJobs(name, domain).catch(() => null);
+    const signals = await collectSignals({
+      name,
+      domain,
+      jobsByFunction: hit ? countByFunction(hit.jobs) : undefined,
+      jobBoardUrl: hit ? boardUrl(hit.provider, hit.slug) : undefined,
+    }).catch(() => []);
+    const { result, composite, model } = await evaluateCompany({ name, website, hq_location: hq }, signals);
     await db.from("evaluations").insert({
-      company_id: company.id, scores: result.scores, composite, summary: result.summary, model, status: "done",
+      company_id: company.id,
+      scores: result.scores,
+      composite,
+      joiner_upside: joinerUpside(result.scores),
+      red_flags: result.red_flags,
+      conflicts: result.conflicts,
+      pmf_evidence: result.pmf_evidence,
+      signals,
+      summary: result.summary,
+      model,
+      status: "done",
     });
-    const f = result.facts ?? {};
-    await db.from("companies").update({
-      stage: f.stage ?? null,
-      headcount: f.headcount_estimate ?? null,
-      latest_post_money_usd: f.latest_post_money_usd ?? null,
-      careers_url: f.careers_url ?? null,
-      ats_provider: f.ats?.provider ?? null,
-      ats_slug: f.ats?.slug ?? null,
-      hq_city: hq ?? f.hq_city ?? null,
-    }).eq("id", company.id);
+    await db.from("companies").update(factsToCompanyUpdate(result.facts ?? {}, { hq_city: hq })).eq("id", company.id);
     return NextResponse.json({ company_id: company.id, composite });
   } catch (e: any) {
     await db.from("evaluations").insert({ company_id: company.id, scores: {}, status: "error", summary: e.message });

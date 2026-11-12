@@ -57,58 +57,53 @@ Testers: 10–15 HBS classmates, a 15-minute session each, in Nov 25–Dec 1 wee
 
 ### 7.2 Explore (home): map + list
 - Zillow-style split view: **map** (clustered pins; color = personal score) + **ranked list** (name, one-liner, personal score, stage, HQ, # open roles).
-- Filters: search text, metro / state, sector, stage, headcount, total funding, has open roles, min personal score.
+- Filters: search text, metro / state, sector, stage, headcount, headcount growth, total funding, customer type, business type, work policy, visa sponsorship, open roles in my function, min personal score, hide red-flagged.
 - The map viewport filters the list ("search this area"). Global and remote companies are still listed.
 
 ### 7.3 Scatter view
 - Default axes: **X = Probability of winning (composite)**, **Y = Personal fit**, **bubble size = total funding**, color = sector.
-- Axis dropdowns: any LTV dimension, personal score, funding, headcount, founded year.
+- Axis dropdowns: any LTV dimension, Joiner Upside, personal score, funding, ARR, revenue per employee, headcount, headcount growth, founded year.
 - Quadrant labels (e.g. top-right "Pursue"). Clicking a bubble opens the company. It shares filters with Explore.
 
 ### 7.4 Company page
 - Header: name, website, HQ, founded, headcount, sector, stage, total funding.
 - **Personal fit**: score + 2–3 bullet reasons (and one "watch-out").
-- **LTV scorecard**: 10 dimensions, each with score 1–5, confidence, 1–2 sentence rationale and source links. Composite = "probability of winning".
+- **LTV scorecard**: 12 dimensions, each with score 1–5, confidence, 1–2 sentence rationale and source links. Composite = "probability of winning".
+- **Joiner Upside** (valuation headroom, career velocity) and any **red flags** with sources.
+- **Key facts**: ARR estimate, revenue per employee, headcount growth, customer type, GTM motion, pricing model, work policy, visa sponsorship. Each is marked fresh or estimated, with an as-of date.
 - **Funding**: rounds table (date, round, amount, post-money; estimates flagged).
-- **Open roles**: live listings (title, team, location, link), highlighting roles matching the user's target function.
-- **Equity estimator** (§9).
-- "Re-evaluate" button (rate-limited).
+- **Hiring**: live listings (title, team, location, link, **posted salary range**), roles in the user's target function highlighted. A **hiring focus** line ("62% Sales & CS: scaling go-to-market") is shown as a growth datapoint, never as a penalty. **Salary bands by function** where the company posts pay (required in CA, NY, CO, WA and others).
+- **Equity package** (§9): estimated from the company's financials and the posted salary for the user's role, or from their real offer.
+- "As of" date on every evaluation, salary range and job list (data is a snapshot; see §10).
 
 ### 7.5 Add a company
 - Input: name + website (optional HQ). Dedupe against the seed list. Show progress; on failure, show partial data rather than nothing.
+- **Limit: 3 added startups per user** (each evaluation costs ~$0.18-0.33). Users can delete one to free a slot. Enforced in the API and the database.
 
-## 8. Scoring model
+## 8. Scoring model (v2)
+Full rationale, course anchors and the worked Sierra example: **[docs/SCORING_FRAMEWORK.md](docs/SCORING_FRAMEWORK.md)**.
 
-**Company quality (same for every user):** 10 LTV dimensions scored 1–5 by the evaluation engine.
+- **Probability of Winning (0-100), "Is this a great company?":** 12 dimensions scored 1-5 with confidence: Market & expansion path 10, PMF & customer love (HUNCH) 15, Growth momentum 10, Moat 10, Competitive position 10, Business model & unit economics 8, GTM fit & ICP focus 7, Gatekeeper independence 5, Key risks retired 5, Capital strategy & efficiency 5, Team & velocity 10, AI positioning 5. Low-confidence scores are pulled toward the midpoint.
+- **Joiner Upside (0-100), "Is joining it now a great deal for me?":** valuation headroom + career velocity. Quadrants: Pursue / Blue chip / Lottery ticket / Pass.
+- **Red flags (LTV Module 5), the joiner's call:** always shown with sources; never silently applied. Users choose show only (default), penalize, or hide.
+- **Personal score** (what the list is ranked by) = `blend × Winning (with the user's weights) + (1 − blend) × profile fit` (− red-flag penalty only if opted in), blend 0.5 by default.
+- **Profile fit (0-100) is plain math, not an AI call** (`lib/fitmath.ts`): open roles in your function 30, stage 15, size 10, interests/sectors 15, location 15, posted pay vs your minimum 10, headcount momentum 5. Every point shows its reason. Free across all companies.
+- **AI is used twice per user:** (1) once when they save or edit their profile, to turn the résumé, cover letter and goals into structured preferences and suggested weights (~1-2¢); (2) once per company they open, to write "why this fits you" plus an outreach angle, cached until the profile changes (~1¢ each).
+  - Weights start from a preset (Balanced, Upside seeker, Safety first, Builder) suggested from the profile, then sliders.
+  - Hard preferences (stage, size, growth, location, work policy, visa, sector, customer/business type, open roles in my function) are **filters**, not scores; missing data shows as "unverified".
 
-| Dimension | Course anchor | Default weight |
-|---|---|---|
-| Market size and wave | TAM, market curve, Rachleff's Law | 15 |
-| PMF level | First Round levels, Balfour | 15 |
-| Moat | 7 Powers, AI-era moats, Jobs as moat | 10 |
-| Competitive intensity (blue vs. red ocean) | Blue Ocean, Wiz | 10 |
-| HUNCH | Hair on fire, Usage, NPS, Churn, High WTP | 10 |
-| Business model quality | 10x club tiers, NDR, GM | 10 |
-| Capital and momentum | Round step-ups, runway, Paley | 10 |
-| Team / founder-market fit | Earned secret, founder velocity | 10 |
-| GTM fit | Elephants/deer/mice, Sales Learning Curve, PLG trap | 5 |
-| AI positioning | Copilot vs. autopilot, Supernova vs. Shooting Star | 5 |
-
-**Probability of winning (composite)** = default-weighted average, scaled 0–100. This is the *team's* LTV view and doesn't change per user.
-
-**Personal score** (what the list is ranked by) =
-`0.5 × (company quality re-weighted with the user's weights) + 0.5 × profile fit`
-- *Profile fit* (0–100): an LLM compares the user's background and goals to the company (role availability for their function, stage and size match, sector interest, location, learning and brand goals), plus hard-filter penalties for explicit dealbreakers.
-- The 50/50 blend is itself a user setting ("How much do you care about the company winning vs. fitting you?").
-
-## 9. Equity estimator
+## 9. Equity estimator & package estimate
+- **Before an offer:** estimate the package from the company's financials (latest valuation, total raised, stage, PMF) and the **posted salary range for the user's target role**. Grant size = a rule-of-thumb multiple of base by stage (early 1-2.5x, mid 0.5-1.5x, late 0.3-0.9x over 4 years), clearly labeled as an estimate. Strike ≈ typical 409A; late-stage assumes RSUs. Every assumption is listed in plain words.
+- **With an offer:** the user's real grant and strike replace the estimate.
 - Inputs (pre-filled, editable): current post-money (latest known or estimated), offer as % or shares + strike, future dilution per round (default 15–20%) and number of rounds to exit, exit scenarios (bear / base / bull values with probabilities), liquidation preference overhang (simple: total preferred raised).
 - Output: value of the grant in each scenario plus a probability-weighted expected value, with assumptions shown. Disclaimer: illustrative only, not financial advice.
 
 ## 10. Data
 - **Seed:** Rocketship List 2026, **US companies only: 556** (`data/rocketship_2026_us.csv`). Mostly SF (166), NYC (87), Palo Alto (36), Boston (17), Austin (14). Columns: name, industry, description, website, HQ, founded, employees (~44% missing), total funding ($M). Non-US companies are out of scope for v1. Users can still add any company themselves.
 - **Enrichment per company:** geocode HQ → lat/lng; the evaluation engine (Claude + web search, including TechCrunch and other free sources) → scores and rationale; funding rounds and latest valuation (flagged estimates); careers board detection (Greenhouse, Lever, Ashby, else careers page) → live jobs.
-- **Rollout:** evaluate 25 calibration companies first, then all 556. Jobs refresh nightly; evaluations on demand.
+- **Rollout:** a **test batch of 12 companies on Claude Opus 5.5 first** (`npm run test-batch`: Sierra, Decagon, Crescendo, Blitzy, Clay, CloudZero, knownwell, Mendaera, Cursor, Nuro, WHOOP, Bedrock Robotics; ~$4-7), then the rest of the calibration set. The full list only when Marcus decides; the seed script refuses more than 20 without `--all`.
+- **Freshness (team decision):** data is a snapshot. Evaluations, funding, salaries and job listings stay as of their pull date until Marcus re-runs them. Nothing refreshes automatically, and users can't trigger re-evaluations. Every page shows its "as of" date.
+- **Budget:** $50/month API limit on the Anthropic account.
 - **Source iteration:** each data type has a pluggable source. We log what works in `docs/data-sources.md`.
 
 ## 11. Release plan
