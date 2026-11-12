@@ -11,6 +11,7 @@ import { discoverJobs, countByFunction, boardUrl } from "@/lib/jobs";
 import { collectSignals } from "@/lib/signals";
 
 export const maxDuration = 300; // evaluations with web search can take 1-2 minutes
+const MAX_COMPANIES_PER_USER = 3; // each evaluation costs ~$0.18-0.33 (team decision)
 
 export async function POST(req: Request) {
   const db = supabaseAdmin();
@@ -22,6 +23,13 @@ export async function POST(req: Request) {
   const name = String(body.name ?? "").trim();
   const website = String(body.website ?? "").trim() || null;
   if (!name) return NextResponse.json({ error: "name is required" }, { status: 400 });
+
+  const { count } = await db.from("companies").select("id", { count: "exact", head: true }).eq("created_by", auth.user.id);
+  if ((count ?? 0) >= MAX_COMPANIES_PER_USER)
+    return NextResponse.json(
+      { error: `You can add up to ${MAX_COMPANIES_PER_USER} startups. Remove one to add another.` },
+      { status: 429 },
+    );
 
   const domain = website?.toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0] ?? null;
 

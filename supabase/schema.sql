@@ -137,6 +137,22 @@ create policy "fit_own" on fit_scores for all
 
 -- Writes to evaluations/funding/jobs happen server-side with the service role key.
 
+-- Each user may add at most 3 startups (each evaluation costs real API money). Enforced in the database too,
+-- so it holds even if someone bypasses the app.
+create or replace function enforce_company_cap() returns trigger language plpgsql as $$
+begin
+  if new.created_by is not null and
+     (select count(*) from companies where created_by = new.created_by) >= 3 then
+    raise exception 'Limit reached: each user can add up to 3 startups';
+  end if;
+  return new;
+end $$;
+drop trigger if exists company_cap on companies;
+create trigger company_cap before insert on companies for each row execute function enforce_company_cap();
+
+-- Users can remove their own added startups (frees a slot)
+create policy "companies_delete_own" on companies for delete using (created_by = auth.uid() and is_seed = false);
+
 -- Convenience view: each company with its latest evaluation
 create or replace view company_latest as
 select c.*, e.scores, e.composite, e.joiner_upside, e.red_flags, e.summary, e.status as eval_status, e.created_at as evaluated_at

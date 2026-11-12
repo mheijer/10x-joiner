@@ -39,10 +39,13 @@ npm run dev                  # http://localhost:3000
 Each evaluation is ~$0.18-0.33 with Sonnet 5.5 (tokens + ~6 web searches at $0.01 each), ~$0.07 with Haiku 5.5.
 The seed script prints the running cost and a projection for all 556 companies. **Set a spend limit in the Anthropic Console first.**
 ```bash
-# Calibration: 20 companies, ~$4-7 on Sonnet, stop at $10
+# FIRST RUN: test batch of 20 companies (the calibration set), ~$4-7 on Sonnet, stop at $10.
+# Runs are capped at 20 companies unless you pass --all.
 npm run seed -- --evaluate --dry-run --calibration --max-cost 10
-# Same set on Haiku, to compare quality vs cost
-ANTHROPIC_MODEL=claude-haiku-5-5 npm run seed -- --evaluate --dry-run --calibration --max-cost 5
 npm run calibrate
+```
+Data is a snapshot: nothing refreshes automatically. To update later, re-run with `--force` (evaluations) or `--jobs` (job listings).
+Account budget: $50/month limit in the Anthropic Console.
+```
 ```
 

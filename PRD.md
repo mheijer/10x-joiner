@@ -74,10 +74,11 @@ Testers: 10–15 HBS classmates, a 15-minute session each, in Nov 25–Dec 1 wee
 - **Funding**: rounds table (date, round, amount, post-money; estimates flagged).
 - **Hiring**: live listings (title, team, location, link, **posted salary range**), roles in the user's target function highlighted. A **hiring focus** line ("62% Sales & CS: scaling go-to-market") is shown as a growth datapoint, never as a penalty. **Salary bands by function** where the company posts pay (required in CA, NY, CO, WA and others).
 - **Equity package** (§9): estimated from the company's financials and the posted salary for the user's role, or from their real offer.
-- "Re-evaluate" button (rate-limited).
+- "As of" date on every evaluation, salary range and job list (data is a snapshot; see §10).
 
 ### 7.5 Add a company
 - Input: name + website (optional HQ). Dedupe against the seed list. Show progress; on failure, show partial data rather than nothing.
+- **Limit: 3 added startups per user** (each evaluation costs ~$0.18-0.33). Users can delete one to free a slot. Enforced in the API and the database.
 
 ## 8. Scoring model (v2)
 Full rationale, course anchors and the worked Sierra example: **[docs/SCORING_FRAMEWORK.md](docs/SCORING_FRAMEWORK.md)**.
@@ -98,7 +99,9 @@ Full rationale, course anchors and the worked Sierra example: **[docs/SCORING_FR
 ## 10. Data
 - **Seed:** Rocketship List 2026, **US companies only: 556** (`data/rocketship_2026_us.csv`). Mostly SF (166), NYC (87), Palo Alto (36), Boston (17), Austin (14). Columns: name, industry, description, website, HQ, founded, employees (~44% missing), total funding ($M). Non-US companies are out of scope for v1. Users can still add any company themselves.
 - **Enrichment per company:** geocode HQ → lat/lng; the evaluation engine (Claude + web search, including TechCrunch and other free sources) → scores and rationale; funding rounds and latest valuation (flagged estimates); careers board detection (Greenhouse, Lever, Ashby, else careers page) → live jobs.
-- **Rollout:** evaluate 25 calibration companies first, then all 556. Jobs refresh nightly; evaluations on demand.
+- **Rollout:** a **test run of 20 companies first** (the calibration set). The full list only when Marcus decides; the seed script refuses more than 20 without `--all`.
+- **Freshness (team decision):** data is a snapshot. Evaluations, funding, salaries and job listings stay as of their pull date until Marcus re-runs them. Nothing refreshes automatically, and users can't trigger re-evaluations. Every page shows its "as of" date.
+- **Budget:** $50/month API limit on the Anthropic account.
 - **Source iteration:** each data type has a pluggable source. We log what works in `docs/data-sources.md`.
 
 ## 11. Release plan

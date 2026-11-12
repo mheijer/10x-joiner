@@ -1,12 +1,15 @@
 // Seed + enrichment pipeline for the Rocketship List (US).
 //
 //   npm run seed -- --load                       # insert companies + geocode HQs into Supabase
-//   npm run seed -- --evaluate --limit 25        # LTV-evaluate companies not yet evaluated
+//   npm run seed -- --evaluate --limit 20        # LTV-evaluate up to 20 companies not yet evaluated (20 is the max without --all)
+//   npm run seed -- --evaluate --all --max-cost 50   # the full list, only when you decide to
 //   npm run seed -- --evaluate --only "Sierra"   # (re-)evaluate one company
 //   npm run seed -- --evaluate --limit 5 --dry-run   # no database: writes JSON to data/eval_samples/
 //   npm run seed -- --evaluate --dry-run --calibration  # evaluate the 20 calibration companies, then: npm run calibrate
 //   npm run seed -- --jobs                       # refresh live job listings
 //
+// Data freshness (team decision): data stays as of its evaluation date until Marcus re-runs it. Nothing refreshes
+// automatically. Re-evaluate with --force; refresh jobs with --jobs.
 // Flags: --force (re-evaluate even if done), --concurrency 3, --max-cost 20 (stop starting new companies past $20)
 // Model: set ANTHROPIC_MODEL (e.g. claude-haiku-5-5) to compare models on the calibration set.
 import { config } from "dotenv";
@@ -30,7 +33,8 @@ import type { CompanyInput } from "../lib/rubric.ts";
 const args = process.argv.slice(2);
 const flag = (f: string) => args.includes(f);
 const opt = (f: string) => (args.includes(f) ? args[args.indexOf(f) + 1] : undefined);
-const LIMIT = Number(opt("--limit") ?? Infinity);
+// Safety: evaluations cost money, so a run is capped at 20 companies unless --all is passed explicitly.
+const LIMIT = flag("--all") ? Infinity : Math.min(Number(opt("--limit") ?? 20), 20);
 const ONLY = opt("--only");
 const CONCURRENCY = Number(opt("--concurrency") ?? 3);
 const DRY = flag("--dry-run");
@@ -211,7 +215,7 @@ async function evaluateDry() {
     const names = new Set(cal.map((c) => c.name.toLowerCase()));
     rows = rows.filter((r) => names.has(r.name.toLowerCase()));
   }
-  rows = rows.slice(0, LIMIT === Infinity ? (flag("--calibration") ? rows.length : 5) : LIMIT);
+  rows = rows.slice(0, LIMIT);
   console.log(`Dry run: evaluating ${rows.length} companies -> data/eval_samples/`);
   await pool(rows, CONCURRENCY, async (r) => {
     try {
@@ -240,7 +244,7 @@ async function jobs() {
   let q = db.from("companies").select("id,name,domain,ats_provider,ats_slug").eq("is_seed", true);
   if (ONLY) q = q.ilike("name", ONLY);
   const { data } = await q;
-  const list = (data ?? []).slice(0, LIMIT);
+  const list = (data ?? []).slice(0, flag("--limit") ? LIMIT : Infinity); // job boards are free: no 20-company cap
   let found = 0;
   await pool(list, 5, async (c: any) => {
     const hit = await discoverJobs(c.name, c.domain, { provider: c.ats_provider as AtsProvider | null, slug: c.ats_slug });
