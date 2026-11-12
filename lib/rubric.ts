@@ -68,7 +68,7 @@ export const DIMENSIONS: Dimension[] = [
     key: "growth",
     group: "winning",
     label: "Growth momentum",
-    question: "How fast is the business growing right now, and is growth accelerating or slowing?",
+    question: "How fast are revenue, customers and usage growing right now, and is growth accelerating or slowing? (Funding growth doesn't count.)",
     courseAnchor:
       "T2D3 (Battery) and Q2T3 (Bessemer State of AI); Supernova vs Shooting Star growth curves; Sales Learning Curve (AI compresses it, but 'only scales what already works'); First Round 'Demand' and 'Efficiency' axes; cohort expansion (Sprout NDR >150%)",
     defaultWeight: 10,
@@ -310,8 +310,17 @@ export interface DimensionScore {
   sources: string[]; // URLs
 }
 
+export interface PmfEvidence {
+  type: "revenue" | "demand" | "retention" | "usage" | "organic_pull" | "pricing_power";
+  signal: string;
+  value: string;
+  as_of?: string | null;
+  source?: string | null;
+}
+
 export interface EvaluationResult {
   summary: string;
+  pmf_evidence: PmfEvidence[]; // non-funding evidence behind the PMF and growth scores
   facts: Facts;
   scores: Record<DimensionKey, DimensionScore>;
   red_flags: RedFlag[];
@@ -354,9 +363,17 @@ Confidence means "how sure am I of this score", not "how much data exists":
 - Total funding: when sources report different cumulative totals, use the LARGEST credible figure. Totals only grow
   over time, so the larger number usually reflects more recent rounds. Note the smaller figures in "conflicts".
   (Exception: exclude debt facilities and grants if a source clearly labels them as such.)
-- Research every number yourself and note the date of your freshest source (as_of).`;
+- Research every number yourself and note the date of your freshest source (as_of).
 
-export function buildEvaluationPrompt(c: CompanyInput): string {
+Funding is NOT evidence of product-market fit (team rule):
+- Funding shows what investors believe; PMF is what customers do. Investors can be wrong (the "TechCrunch false
+  positive"; Chief raised $100M+ and later shrank).
+- For "pmf" and "growth", never cite round sizes, valuations, step-ups or investor names as evidence. Use customer
+  evidence and the measured signals provided. Funding belongs only in "capital" and "valuation_headroom".
+- Record at least 3 non-funding PMF signals in "pmf_evidence". If you can't find 3, score "pmf" with LOW confidence
+  and say what was missing.`;
+
+export function buildEvaluationPrompt(c: CompanyInput, measuredSignals = ""): string {
   const known = [
     `Name: ${c.name}`,
     c.website && `Website: ${c.website}`,
@@ -384,8 +401,15 @@ export function buildEvaluationPrompt(c: CompanyInput): string {
 ## Company identity (from the Rocketship List; use only to identify the company, research every fact yourself)
 ${known}
 
+${measuredSignals}
 ## Research (use web search)
-Find: latest funding rounds and valuation; ARR/revenue and its growth rate over time (is it accelerating?); headcount and its growth over the last year;
+Start with what CUSTOMERS do, not what investors do. Find, in this order:
+1. Customer evidence (for PMF and growth): ARR/revenue and its growth over time (is it accelerating?); number of customers
+   and how it's changing; named customers and published results (case studies with numbers); expansion within accounts,
+   renewals, multi-year contracts; review-site ratings and volume (G2, Capterra, TrustRadius, App Store); community size and
+   word of mouth (users bringing it to new jobs, agencies or partners built on it); usage signals (downloads, traffic,
+   GitHub stars); pricing power (price increases that stuck, paid conversion).
+2. Then everything else: latest funding rounds and valuation; headcount and its growth over the last year;
 customers and who buys (enterprise/SMB/consumer); pricing model and sales motion; competitors; founders' backgrounds;
 key dependencies (platforms, partners, channels, model providers); any red flags (lawsuits, regulatory action,
 layoffs, down rounds, leadership departures, disputed metrics); work policy and office locations;
@@ -428,6 +452,7 @@ Return ONLY a JSON object (no markdown fences) with exactly this shape:
   "scores": {
     ${DIMENSIONS.map(scoreLine).join(",\n    ")}
   },
+  "pmf_evidence": [{"type": "revenue|demand|retention|usage|organic_pull|pricing_power", "signal": "what it shows", "value": "the number or fact", "as_of": "YYYY-MM", "source": "url"}],
   "red_flags": [{"type": "governance_ethics|overstated_metrics|leadership_exodus|layoffs_or_down_round|legal_or_regulatory|customer_or_partner_concentration", "severity": "low|medium|high", "detail": "one line", "source": "url"}],
   "conflicts": ["e.g. 'Aggregators label the Feb 2024 round Seed vs Series A; used company blog'"]
 }`;
@@ -466,6 +491,9 @@ export function parseEvaluation(raw: string): EvaluationResult {
     : [];
   return {
     summary: String(obj.summary ?? ""),
+    pmf_evidence: Array.isArray(obj.pmf_evidence)
+      ? obj.pmf_evidence.filter((e: any) => e && typeof e.value === "string" && typeof e.signal === "string").slice(0, 10)
+      : [],
     facts: obj.facts ?? {},
     scores,
     red_flags,

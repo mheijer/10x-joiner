@@ -7,6 +7,8 @@ import { evaluateCompany } from "@/lib/evaluate";
 import { normalizeUsLocation, geocodeUs } from "@/lib/geocode";
 import { factsToCompanyUpdate } from "@/lib/facts";
 import { joinerUpside } from "@/lib/scoring";
+import { discoverJobs, countByFunction, boardUrl } from "@/lib/jobs";
+import { collectSignals } from "@/lib/signals";
 
 export const maxDuration = 300; // evaluations with web search can take 1-2 minutes
 
@@ -39,7 +41,14 @@ export async function POST(req: Request) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   try {
-    const { result, composite, model } = await evaluateCompany({ name, website, hq_location: hq });
+    const hit = await discoverJobs(name, domain).catch(() => null);
+    const signals = await collectSignals({
+      name,
+      domain,
+      jobsByFunction: hit ? countByFunction(hit.jobs) : undefined,
+      jobBoardUrl: hit ? boardUrl(hit.provider, hit.slug) : undefined,
+    }).catch(() => []);
+    const { result, composite, model } = await evaluateCompany({ name, website, hq_location: hq }, signals);
     await db.from("evaluations").insert({
       company_id: company.id,
       scores: result.scores,
@@ -47,6 +56,8 @@ export async function POST(req: Request) {
       joiner_upside: joinerUpside(result.scores),
       red_flags: result.red_flags,
       conflicts: result.conflicts,
+      pmf_evidence: result.pmf_evidence,
+      signals,
       summary: result.summary,
       model,
       status: "done",

@@ -16,7 +16,9 @@ import path from "node:path";
 import { parse } from "csv-parse/sync";
 import { evaluateCompany } from "../lib/evaluate.ts";
 import { normalizeUsLocation, geocodeUs } from "../lib/geocode.ts";
-import { discoverJobs, classifyRole } from "../lib/jobs.ts";
+import { discoverJobs, classifyRole, countByFunction, boardUrl } from "../lib/jobs.ts";
+import { collectSignals } from "../lib/signals.ts";
+import type { Signal } from "../lib/signals.ts";
 import { factsToCompanyUpdate } from "../lib/facts.ts";
 import { joinerUpside } from "../lib/scoring.ts";
 import type { AtsProvider } from "../lib/jobs.ts";
@@ -103,6 +105,17 @@ async function load() {
   console.log(`Loaded ${added} new companies (${rows.length} in list).`);
 }
 
+// ---------------------------------------------------------------- measured signals (non-funding evidence)
+async function gatherSignals(name: string, domain?: string | null): Promise<Signal[]> {
+  const hit = await discoverJobs(name, domain).catch(() => null);
+  return collectSignals({
+    name,
+    domain,
+    jobsByFunction: hit ? countByFunction(hit.jobs) : undefined,
+    jobBoardUrl: hit ? boardUrl(hit.provider, hit.slug) : undefined,
+  }).catch(() => []);
+}
+
 // ---------------------------------------------------------------- evaluate
 async function evaluate() {
   if (DRY) return evaluateDry();
@@ -127,7 +140,8 @@ async function evaluate() {
       founded_year: c.founded_year,
     };
     try {
-      const { result, composite, model } = await evaluateCompany(input);
+      const signals = await gatherSignals(c.name, c.domain);
+      const { result, composite, model } = await evaluateCompany(input, signals);
       const f = result.facts ?? {};
       await db.from("evaluations").insert({
         company_id: c.id,
@@ -136,6 +150,8 @@ async function evaluate() {
         joiner_upside: joinerUpside(result.scores),
         red_flags: result.red_flags,
         conflicts: result.conflicts,
+        pmf_evidence: result.pmf_evidence,
+        signals,
         summary: result.summary,
         model,
         status: "done",
@@ -179,13 +195,17 @@ async function evaluateDry() {
   console.log(`Dry run: evaluating ${rows.length} companies -> data/eval_samples/`);
   await pool(rows, CONCURRENCY, async (r) => {
     try {
-      const out = await evaluateCompany({
-        name: r.name, website: r.website, description: r.description, industry: r.industry,
-        hq_location: r.hq_location, founded_year: r.founded_year,
-      });
+      const signals = await gatherSignals(r.name, domainOf(r.website));
+      const out = await evaluateCompany(
+        {
+          name: r.name, website: r.website, description: r.description, industry: r.industry,
+          hq_location: r.hq_location, founded_year: r.founded_year,
+        },
+        signals,
+      );
       const file = path.join(outDir, r.name.replace(/[^a-z0-9]+/gi, "_") + ".json");
       fs.writeFileSync(file, JSON.stringify(out, null, 2));
-      console.log(`${r.name}: winning ${out.composite} | joiner upside ${joinerUpside(out.result.scores)} | red flags ${out.result.red_flags.length}`);
+      console.log(`${r.name}: winning ${out.composite} | joiner upside ${joinerUpside(out.result.scores)} | measured signals ${signals.length} | PMF evidence ${out.result.pmf_evidence.length} | red flags ${out.result.red_flags.length}`);
     } catch (e: any) {
       console.error(`${r.name}: FAILED ${e.message}`);
     }

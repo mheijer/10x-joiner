@@ -51,6 +51,8 @@ create table if not exists evaluations (
   joiner_upside numeric,         -- Joiner Upside 0-100
   red_flags    jsonb,            -- [{type, severity, detail, source}]
   conflicts    jsonb,            -- where sources disagreed
+  pmf_evidence jsonb,            -- non-funding evidence behind PMF/growth: [{type, signal, value, as_of, source}]
+  signals      jsonb,            -- measured signals from public APIs (HN, App Store, GitHub, npm, PyPI, job board)
   rubric_version text default 'v2',
   summary      text,
   model        text,

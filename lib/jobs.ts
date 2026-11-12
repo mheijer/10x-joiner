@@ -58,6 +58,15 @@ export async function fetchJobs(provider: AtsProvider, slug: string): Promise<Jo
   return null;
 }
 
+/** Public URL of a company's job board. */
+export function boardUrl(provider: AtsProvider, slug: string): string {
+  return {
+    greenhouse: `https://job-boards.greenhouse.io/${slug}`,
+    lever: `https://jobs.lever.co/${slug}`,
+    ashby: `https://jobs.ashbyhq.com/${slug}`,
+  }[provider];
+}
+
 export type JobFunction =
   | "chief_of_staff"
   | "product"

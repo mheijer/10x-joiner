@@ -133,10 +133,40 @@ Plain attributes, gathered during evaluation. **Team rules:**
 6. **Job coverage has gaps.** Smaller medtech/hardware companies often don't use Greenhouse, Lever or Ashby. → They fall back to a careers-page link. Coverage is worth measuring after the first batch.
 7. **Valuations are usually undisclosed below late stage.** Both CloudZero and Mendaera need estimated valuations, so the equity estimator must show "estimate" clearly and let users edit it.
 
-## 7. Calibration (PRD hypothesis H3)
+## 7. Data sources: what feeds each score
+
+**Team rule: funding is not evidence of PMF.** Funding shows what investors believe; PMF is what customers do (the "TechCrunch false positive"; Chief). Funding, valuations and investor names count only toward **Capital** and **Valuation headroom**. PMF and Growth must rest on customer evidence. Each evaluation must record at least 3 non-funding PMF signals in `pmf_evidence`; otherwise PMF gets low confidence.
+
+**Three kinds of input:**
+
+| Kind | Where it comes from | How reliable |
+|---|---|---|
+| **Measured signals** (`lib/signals.ts`), pulled by code before the AI runs | Company job board (Greenhouse/Lever/Ashby), Hacker News (Algolia API), Apple App Store (iTunes API), GitHub API, npm & PyPI download APIs | Exact numbers with dates, but each only fits some companies (App Store → consumer apps; GitHub/npm/PyPI → dev tools; HN → tech audiences, and it can echo funding news) |
+| **Researched evidence**, found by the AI with web search and cited by URL | Company site/blog/case studies, SEC filings, tier-1 press, research firms (Sacra etc.), review sites (G2, Capterra), aggregators (last resort) | Ranked by the source hierarchy; conflicts logged |
+| **Judgment**, the AI's 1-5 grade per dimension | The rubric anchors applied to the two kinds above | Shown with confidence, rationale and sources so users can check it |
+
+**By dimension:**
+
+| Dimension | Main evidence | Never used |
+|---|---|---|
+| PMF & JTBD | Revenue/ARR disclosures; customer counts and named results; renewals and expansion; review ratings and volume; usage signals; word of mouth | Funding, valuation, investors |
+| Growth momentum | Revenue over time; customer-count growth; hiring growth and customer-facing hiring share; usage/mention trends (year over year) | Round step-ups |
+| Market | Market-size research, category growth, adjacent products | |
+| Moat, Competition | Product depth, integrations, competitor revenue/customers, comparison coverage | |
+| Business model | Pricing pages, pricing model, margins (if disclosed), expansion revenue | |
+| GTM | Deal sizes, sales motion, job-board role mix (sales vs FDE vs PLG growth roles) | |
+| Independence, Risks retired | Platform/partner/model dependencies; regulatory status (e.g. FDA); technical proof points | |
+| Capital | Funding rounds, investors, time since last raise, revenue per employee | |
+| Team | Founder backgrounds and prior exits, leadership changes, output per person | |
+| Valuation headroom | Latest valuation vs revenue, growth and peers | |
+| Career velocity | Headcount growth, open roles, company stage | |
+
+**What we don't use:** LinkedIn (its terms prohibit scraping), paid databases (PitchBook, Crunchbase Pro, Similarweb), and the Rocketship List's numbers.
+
+## 8. Calibration (PRD hypothesis H3)
 `data/calibration.csv` holds 20 companies chosen to stress-test the rubric. They include a head-to-head pair (Sierra vs. Decagon), two LTV companies (Clay, Blitzy), tough tech (Impulse Space, Nuro), sparse-data companies (Mendaera, Bedrock Robotics) and a data-gap case (Postman). Each teammate fills in gut scores *before* seeing the engine's. `npm run calibrate` reports the Spearman rank correlation (target ≥ 0.5) and the five biggest disagreements. Those disagreements are the best material for "What we learned".
 
-## 8. Open questions for the team
+## 9. Open questions for the team
 1. Should Joiner Upside feed the personal score, or stay a separate axis? (v2: separate.)
 2. Are the red-flag penalties (high -10, medium -4) about right?
 3. Should AI positioning (5) carry more weight for an AI-heavy list?
