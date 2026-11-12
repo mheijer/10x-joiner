@@ -153,8 +153,10 @@ create trigger company_cap before insert on companies for each row execute funct
 -- Users can remove their own added startups (frees a slot)
 create policy "companies_delete_own" on companies for delete using (created_by = auth.uid() and is_seed = false);
 
--- Convenience view: each company with its latest evaluation
-create or replace view company_latest as
+-- Convenience view: each company with its latest evaluation.
+-- security_invoker = true makes the view respect row-level security (otherwise a view runs with its owner's
+-- rights and would expose every user's private startups).
+create or replace view company_latest with (security_invoker = true) as
 select c.*, e.scores, e.composite, e.joiner_upside, e.red_flags, e.summary, e.status as eval_status, e.created_at as evaluated_at
 from companies c
 left join lateral (
