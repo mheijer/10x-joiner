@@ -97,6 +97,8 @@ Plain attributes, gathered during evaluation. **Team rules:**
 | Founders (repeat?), top investors | Team quality; investor quality | Earned secrets; diligence your VC (Rothenberg) | Display + fit |
 | **Open roles by function** (PM, BizOps, CoS, FDE, GTM, marketing) | Is there a job for *me*? | 10x Joiner roles to consider | Filter + fit |
 
+**Personal fit is math, not AI.** One Sonnet call per user turns their résumé and goals into structured preferences (target functions, stage, size, locations, interests, minimum base, visa needs) and suggested weights. Fit across every company is then computed with transparent points (`lib/fitmath.ts`): roles 30, stage 15, size 10, interests 15, location 15, pay 10, momentum 5. The AI only writes the "why this fits you" text for companies a user opens. This keeps the cost to pennies per user and makes every fit point explainable.
+
 **How preferences map:** structured chips become **hard filters** (`lib/filters.ts`): stage, size, growth, location, work policy, visa, sector, customer and business type, "must have open roles in my function". Missing data is shown as "unverified" rather than excluding the company. Free text, the résumé and goals feed the **profile-fit** model and the **weight suggestion**, which starts from a preset:
 
 | Preset | For someone who says... | Tilts weight toward |

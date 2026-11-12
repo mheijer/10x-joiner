@@ -87,6 +87,8 @@ Full rationale, course anchors and the worked Sierra example: **[docs/SCORING_FR
 - **Joiner Upside (0-100), "Is joining it now a great deal for me?":** valuation headroom + career velocity. Quadrants: Pursue / Blue chip / Lottery ticket / Pass.
 - **Red flags (LTV Module 5), the joiner's call:** always shown with sources; never silently applied. Users choose show only (default), penalize, or hide.
 - **Personal score** (what the list is ranked by) = `blend × Winning (with the user's weights) + (1 − blend) × profile fit` (− red-flag penalty only if opted in), blend 0.5 by default.
+- **Profile fit (0-100) is plain math, not an AI call** (`lib/fitmath.ts`): open roles in your function 30, stage 15, size 10, interests/sectors 15, location 15, posted pay vs your minimum 10, headcount momentum 5. Every point shows its reason. Free across all companies.
+- **AI is used twice per user:** (1) once when they save or edit their profile, to turn the résumé, cover letter and goals into structured preferences and suggested weights (~1-2¢); (2) once per company they open, to write "why this fits you" plus an outreach angle, cached until the profile changes (~1¢ each).
   - Weights start from a preset (Balanced, Upside seeker, Safety first, Builder) suggested from the profile, then sliders.
   - Hard preferences (stage, size, growth, location, work policy, visa, sector, customer/business type, open roles in my function) are **filters**, not scores; missing data shows as "unverified".
 
