@@ -36,7 +36,8 @@ const flag = (f: string) => args.includes(f);
 const opt = (f: string) => (args.includes(f) ? args[args.indexOf(f) + 1] : undefined);
 // Safety: evaluations cost money, so a run is capped at 20 companies unless --all is passed explicitly.
 const LIMIT = flag("--all") ? Infinity : Math.min(Number(opt("--limit") ?? 20), 20);
-const ONLY = opt("--only");
+const ONLY = opt("--only"); // one name, or a comma-separated list: --only "Sierra,Decagon,Blitzy"
+const ONLY_SET = ONLY ? new Set(ONLY.split(",").map((n) => n.trim().toLowerCase()).filter(Boolean)) : null;
 const CONCURRENCY = Number(opt("--concurrency") ?? 3);
 const DRY = flag("--dry-run");
 const MAX_COST = Number(opt("--max-cost") ?? Infinity);
@@ -146,11 +147,10 @@ async function evaluate() {
   const { supabaseAdmin } = await import("../lib/supabase-admin.ts");
   const db = supabaseAdmin();
 
-  let q = db.from("company_latest").select("*").eq("is_seed", true).order("name");
-  if (ONLY) q = q.ilike("name", ONLY);
+  const q = db.from("company_latest").select("*").eq("is_seed", true).order("name");
   const { data: rows0, error } = await q;
   if (error) throw error;
-  let data = rows0 ?? [];
+  let data = (rows0 ?? []).filter((c: any) => !ONLY_SET || ONLY_SET.has(String(c.name).toLowerCase()));
   if (flag("--calibration")) {
     const cal: { name: string }[] = parse(fs.readFileSync("data/calibration.csv", "utf8"), { columns: true });
     const names = new Set(cal.map((c) => c.name.toLowerCase()));
@@ -220,7 +220,7 @@ async function evaluateDry() {
   const outDir = path.join(process.cwd(), "data/eval_samples");
   fs.mkdirSync(outDir, { recursive: true });
   let rows = loadCsv();
-  if (ONLY) rows = rows.filter((r) => r.name.toLowerCase() === ONLY.toLowerCase());
+  if (ONLY_SET) rows = rows.filter((r) => ONLY_SET.has(r.name.toLowerCase()));
   if (flag("--calibration")) {
     const cal: { name: string }[] = parse(fs.readFileSync("data/calibration.csv", "utf8"), { columns: true });
     const names = new Set(cal.map((c) => c.name.toLowerCase()));
@@ -252,10 +252,8 @@ async function evaluateDry() {
 async function jobs() {
   const { supabaseAdmin } = await import("../lib/supabase-admin.ts");
   const db = supabaseAdmin();
-  let q = db.from("companies").select("id,name,domain,ats_provider,ats_slug").eq("is_seed", true);
-  if (ONLY) q = q.ilike("name", ONLY);
-  const { data } = await q;
-  const list = (data ?? []).slice(0, flag("--limit") ? LIMIT : Infinity); // job boards are free: no 20-company cap
+  const { data } = await db.from("companies").select("id,name,domain,ats_provider,ats_slug").eq("is_seed", true);
+  const list = (data ?? []).filter((c: any) => !ONLY_SET || ONLY_SET.has(String(c.name).toLowerCase())).slice(0, flag("--limit") ? LIMIT : Infinity); // job boards are free: no 20-company cap
   let found = 0;
   await pool(list, 5, async (c: any) => {
     const hit = await discoverJobs(c.name, c.domain, { provider: c.ats_provider as AtsProvider | null, slug: c.ats_slug });
