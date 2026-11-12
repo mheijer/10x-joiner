@@ -427,7 +427,7 @@ ${rubric(WINNING_DIMENSIONS)}
 ${rubric(JOINER_DIMENSIONS)}
 
 ## Output
-Return ONLY a JSON object (no markdown fences) with exactly this shape:
+When you have finished researching, call the submit_evaluation tool. Its input must have exactly this shape:
 {
   "summary": "1-2 sentences: what it does and why it could (or could not) be a 10x company",
   "facts": {
@@ -465,7 +465,12 @@ export function parseEvaluation(raw: string): EvaluationResult {
   const start = raw.indexOf("{");
   const end = raw.lastIndexOf("}");
   if (start === -1 || end <= start) throw new Error("No JSON object in model output");
-  const obj = JSON.parse(raw.slice(start, end + 1));
+  return normalizeEvaluation(JSON.parse(raw.slice(start, end + 1)));
+}
+
+/** Validate and clamp an evaluation object (from the submit_evaluation tool or parsed text). */
+export function normalizeEvaluation(obj: any): EvaluationResult {
+  if (!obj || typeof obj !== "object") throw new Error("Evaluation is not an object");
 
   if (!obj.scores || typeof obj.scores !== "object") throw new Error("Missing scores");
   const scores = {} as Record<DimensionKey, DimensionScore>;
@@ -525,3 +530,64 @@ export function enforcePmfEvidenceRule(scores: Record<DimensionKey, DimensionSco
   };
   return capped || pmf.confidence !== "low";
 }
+
+// ---------------------------------------------------------------- structured output tool
+// The model submits its evaluation through this tool. The API validates the input against the schema and returns it
+// as parsed JSON, so a stray quote inside a rationale can't corrupt the output (lesson from the first test batch).
+const scoreSchema = {
+  type: "object",
+  properties: {
+    score: { type: "number", minimum: 1, maximum: 5 },
+    confidence: { type: "string", enum: ["low", "medium", "high"] },
+    rationale: { type: "string" },
+    sources: { type: "array", items: { type: "string" } },
+  },
+  required: ["score", "confidence", "rationale", "sources"],
+};
+
+export const EVALUATION_TOOL = {
+  name: "submit_evaluation",
+  description: "Submit the finished LTV evaluation of the company. Call this once, after researching.",
+  input_schema: {
+    type: "object",
+    properties: {
+      summary: { type: "string" },
+      facts: { type: "object" },
+      scores: {
+        type: "object",
+        properties: Object.fromEntries(DIMENSIONS.map((d) => [d.key, scoreSchema])),
+        required: DIMENSIONS.map((d) => d.key),
+      },
+      pmf_evidence: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            type: { type: "string", enum: ["revenue", "demand", "retention", "usage", "organic_pull", "pricing_power", "investor_signal"] },
+            signal: { type: "string" },
+            value: { type: "string" },
+            as_of: { type: "string" },
+            source: { type: "string" },
+          },
+          required: ["type", "signal", "value"],
+        },
+      },
+      red_flags: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            type: { type: "string" },
+            severity: { type: "string", enum: ["low", "medium", "high"] },
+            detail: { type: "string" },
+            source: { type: "string" },
+          },
+          required: ["type", "severity", "detail"],
+        },
+      },
+      conflicts: { type: "array", items: { type: "string" } },
+    },
+    required: ["summary", "facts", "scores", "pmf_evidence", "red_flags", "conflicts"],
+  },
+};
+

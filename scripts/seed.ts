@@ -38,7 +38,7 @@ const opt = (f: string) => (args.includes(f) ? args[args.indexOf(f) + 1] : undef
 const LIMIT = flag("--all") ? Infinity : Math.min(Number(opt("--limit") ?? 20), 20);
 const ONLY = opt("--only"); // one name, or a comma-separated list: --only "Sierra,Decagon,Blitzy"
 const ONLY_SET = ONLY ? new Set(ONLY.split(",").map((n) => n.trim().toLowerCase()).filter(Boolean)) : null;
-const CONCURRENCY = Number(opt("--concurrency") ?? 3);
+const CONCURRENCY = Number(opt("--concurrency") ?? 2);
 const DRY = flag("--dry-run");
 const MAX_COST = Number(opt("--max-cost") ?? Infinity);
 
@@ -61,19 +61,35 @@ function loadCsv(): Row[] {
 const num = (s: string) => (s && !isNaN(Number(s)) ? Number(s) : null);
 const domainOf = (w: string) => (w ? w.toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0] : null);
 
+// Measured on the first Opus test batch: ~143K input + ~6K output tokens + ~6 searches ≈ $0.75 per company.
+const EST_COST_PER_COMPANY: Record<string, number> = {
+  "claude-opus-5-5": 0.8,
+  "claude-sonnet-5-5": 0.4,
+  "claude-haiku-5-5": 0.08,
+};
+const EST = EST_COST_PER_COMPANY[MODEL] ?? 0.8;
+
 async function pool<T>(items: T[], n: number, fn: (t: T, i: number) => Promise<void>) {
   let i = 0;
+  let inFlight = 0;
   let warned = false;
   await Promise.all(
     Array.from({ length: Math.min(n, items.length) }, async () => {
       while (i < items.length) {
-        if (usage.costUsd >= MAX_COST) {
-          if (!warned) console.log(`Budget of $${MAX_COST} reached; not starting more companies.`);
+        // Budget check reserves room for companies already running, so the cap can't be overshot by in-flight work.
+        if (usage.costUsd + (inFlight + 1) * EST > MAX_COST) {
+          if (!warned)
+            console.log(`Budget of $${MAX_COST}: spent $${usage.costUsd.toFixed(2)}, ${inFlight} still running (~$${EST} each); not starting more companies.`);
           warned = true;
           return;
         }
         const idx = i++;
-        await fn(items[idx], idx);
+        inFlight++;
+        try {
+          await fn(items[idx], idx);
+        } finally {
+          inFlight--;
+        }
       }
     }),
   );
