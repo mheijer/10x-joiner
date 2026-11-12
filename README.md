@@ -41,7 +41,9 @@ The seed script prints the running cost and a projection for all 556 companies. 
 ```bash
 # FIRST RUN: test batch of 20 companies (the calibration set), ~$4-7 on Sonnet, stop at $10.
 # Runs are capped at 20 companies unless you pass --all.
-npm run seed -- --evaluate --dry-run --calibration --max-cost 10
+npm run seed -- --load                                       # load the 556 companies + map locations (free, ~5 min)
+npm run seed -- --evaluate --calibration --max-cost 10       # evaluate the 20 test companies into Supabase
+npm run seed -- --jobs                                       # pull job listings + salaries (free)
 npm run calibrate
 ```
 Data is a snapshot: nothing refreshes automatically. To update later, re-run with `--force` (evaluations) or `--jobs` (job listings).

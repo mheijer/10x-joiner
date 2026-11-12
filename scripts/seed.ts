@@ -5,7 +5,8 @@
 //   npm run seed -- --evaluate --all --max-cost 50   # the full list, only when you decide to
 //   npm run seed -- --evaluate --only "Sierra"   # (re-)evaluate one company
 //   npm run seed -- --evaluate --limit 5 --dry-run   # no database: writes JSON to data/eval_samples/
-//   npm run seed -- --evaluate --dry-run --calibration  # evaluate the 20 calibration companies, then: npm run calibrate
+//   npm run seed -- --evaluate --calibration --max-cost 10   # FIRST RUN: the 20 calibration companies, saved to Supabase
+//   npm run seed -- --evaluate --dry-run --calibration       # same, files only (no database)
 //   npm run seed -- --jobs                       # refresh live job listings
 //
 // Data freshness (team decision): data stays as of its evaluation date until Marcus re-runs it. Nothing refreshes
@@ -147,9 +148,15 @@ async function evaluate() {
 
   let q = db.from("company_latest").select("*").eq("is_seed", true).order("name");
   if (ONLY) q = q.ilike("name", ONLY);
-  const { data, error } = await q;
+  const { data: rows0, error } = await q;
   if (error) throw error;
-  const todo = (data ?? []).filter((c: any) => flag("--force") || ONLY || c.eval_status !== "done").slice(0, LIMIT);
+  let data = rows0 ?? [];
+  if (flag("--calibration")) {
+    const cal: { name: string }[] = parse(fs.readFileSync("data/calibration.csv", "utf8"), { columns: true });
+    const names = new Set(cal.map((c) => c.name.toLowerCase()));
+    data = data.filter((c: any) => names.has(String(c.name).toLowerCase()));
+  }
+  const todo = data.filter((c: any) => flag("--force") || ONLY || c.eval_status !== "done").slice(0, LIMIT);
   console.log(`Evaluating ${todo.length} companies (concurrency ${CONCURRENCY})...`);
 
   let done = 0;
@@ -164,7 +171,11 @@ async function evaluate() {
     };
     try {
       const signals = await gatherSignals(c.name, c.domain);
-      const { result, composite, model } = await evaluateCompany(input, signals);
+      const out = await evaluateCompany(input, signals);
+      const { result, composite, model } = out;
+      // Also save a JSON copy so `npm run calibrate` can compare against the team's gut scores
+      fs.mkdirSync("data/eval_samples", { recursive: true });
+      fs.writeFileSync(path.join("data/eval_samples", c.name.replace(/[^a-z0-9]+/gi, "_") + ".json"), JSON.stringify(out, null, 2));
       const f = result.facts ?? {};
       await db.from("evaluations").insert({
         company_id: c.id,
