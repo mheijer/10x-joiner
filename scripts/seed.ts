@@ -7,7 +7,8 @@
 //   npm run seed -- --evaluate --dry-run --calibration  # evaluate the 20 calibration companies, then: npm run calibrate
 //   npm run seed -- --jobs                       # refresh live job listings
 //
-// Flags: --force (re-evaluate even if done), --concurrency 3
+// Flags: --force (re-evaluate even if done), --concurrency 3, --max-cost 20 (stop starting new companies past $20)
+// Model: set ANTHROPIC_MODEL (e.g. claude-haiku-5-5) to compare models on the calibration set.
 import { config } from "dotenv";
 config({ path: ".env.local" });
 
@@ -15,6 +16,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { parse } from "csv-parse/sync";
 import { evaluateCompany } from "../lib/evaluate.ts";
+import { usage, MODEL } from "../lib/claude.ts";
 import { normalizeUsLocation, geocodeUs } from "../lib/geocode.ts";
 import { discoverJobs, classifyRole, countByFunction, boardUrl } from "../lib/jobs.ts";
 import { collectSignals } from "../lib/signals.ts";
@@ -32,6 +34,7 @@ const LIMIT = Number(opt("--limit") ?? Infinity);
 const ONLY = opt("--only");
 const CONCURRENCY = Number(opt("--concurrency") ?? 3);
 const DRY = flag("--dry-run");
+const MAX_COST = Number(opt("--max-cost") ?? Infinity);
 
 interface Row {
   name: string;
@@ -54,13 +57,28 @@ const domainOf = (w: string) => (w ? w.toLowerCase().replace(/^https?:\/\//, "")
 
 async function pool<T>(items: T[], n: number, fn: (t: T, i: number) => Promise<void>) {
   let i = 0;
+  let warned = false;
   await Promise.all(
     Array.from({ length: Math.min(n, items.length) }, async () => {
       while (i < items.length) {
+        if (usage.costUsd >= MAX_COST) {
+          if (!warned) console.log(`Budget of $${MAX_COST} reached; not starting more companies.`);
+          warned = true;
+          return;
+        }
         const idx = i++;
         await fn(items[idx], idx);
       }
     }),
+  );
+}
+
+function costReport(n: number) {
+  if (!usage.calls) return;
+  console.log(
+    `\nCost (${MODEL}): $${usage.costUsd.toFixed(2)} for ${n} companies ≈ $${(usage.costUsd / Math.max(1, n)).toFixed(3)} each. ` +
+      `${usage.inputTokens.toLocaleString()} input tokens, ${usage.outputTokens.toLocaleString()} output tokens, ${usage.webSearches} web searches.` +
+      `\nProjected for all 556 US companies: ~$${((usage.costUsd / Math.max(1, n)) * 556).toFixed(0)} (about half with the Batch API).`,
   );
 }
 
@@ -173,7 +191,8 @@ async function evaluate() {
           })),
         );
       }
-      console.log(`[${++done}/${todo.length}] ${c.name}: ${composite}`);
+      evaluatedCount++;
+      console.log(`[${++done}/${todo.length}] ${c.name}: ${composite}  (running cost $${usage.costUsd.toFixed(2)})`);
     } catch (e: any) {
       console.error(`[${++done}/${todo.length}] ${c.name}: FAILED ${e.message}`);
       await db.from("evaluations").insert({ company_id: c.id, scores: {}, status: "error", summary: e.message });
@@ -206,7 +225,8 @@ async function evaluateDry() {
       );
       const file = path.join(outDir, r.name.replace(/[^a-z0-9]+/gi, "_") + ".json");
       fs.writeFileSync(file, JSON.stringify(out, null, 2));
-      console.log(`${r.name}: winning ${out.composite} | joiner upside ${joinerUpside(out.result.scores)} | measured signals ${signals.length} | PMF evidence ${out.result.pmf_evidence.length} | red flags ${out.result.red_flags.length}`);
+      evaluatedCount++;
+      console.log(`$${usage.costUsd.toFixed(2)} so far | ${r.name}: winning ${out.composite} | joiner upside ${joinerUpside(out.result.scores)} | measured signals ${signals.length} | PMF evidence ${out.result.pmf_evidence.length} | red flags ${out.result.red_flags.length}`);
     } catch (e: any) {
       console.error(`${r.name}: FAILED ${e.message}`);
     }
@@ -236,9 +256,11 @@ async function jobs() {
   console.log(`Jobs: found boards for ${found}/${list.length} companies.`);
 }
 
+let evaluatedCount = 0;
 (async () => {
   if (flag("--load")) await load();
   if (flag("--evaluate")) await evaluate();
   if (flag("--jobs")) await jobs();
+  costReport(evaluatedCount);
   if (!["--load", "--evaluate", "--jobs"].some(flag)) console.log("Usage: npm run seed -- --load | --evaluate [--limit N] [--only NAME] [--dry-run] | --jobs");
 })();

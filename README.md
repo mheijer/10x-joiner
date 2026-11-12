@@ -34,3 +34,15 @@ npm run dev                  # http://localhost:3000
 - Don't commit to `main` directly. Create a branch (`git checkout -b feature/map`), push it, and open a pull request.
 - Never commit `.env.local` or any API keys.
 - If you use Claude Code, point it at `PRD.md` first so it builds to the spec.
+
+## Running evaluations (and what they cost)
+Each evaluation is ~$0.18-0.33 with Sonnet 5.5 (tokens + ~6 web searches at $0.01 each), ~$0.07 with Haiku 5.5.
+The seed script prints the running cost and a projection for all 556 companies. **Set a spend limit in the Anthropic Console first.**
+```bash
+# Calibration: 20 companies, ~$4-7 on Sonnet, stop at $10
+npm run seed -- --evaluate --dry-run --calibration --max-cost 10
+# Same set on Haiku, to compare quality vs cost
+ANTHROPIC_MODEL=claude-haiku-5-5 npm run seed -- --evaluate --dry-run --calibration --max-cost 5
+npm run calibrate
+```
+
