@@ -1,7 +1,7 @@
 // Thin wrapper around the Claude API. Server-side only (never import from client components).
 import Anthropic from "@anthropic-ai/sdk";
 
-export const MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-5-5";
+export const MODEL = process.env.ANTHROPIC_MODEL || "claude-opus-5-5"; // team decision: Opus for quality
 // Web search server tool. If Anthropic ships a newer version string, set WEB_SEARCH_TOOL_TYPE.
 const WEB_SEARCH_TYPE = process.env.WEB_SEARCH_TOOL_TYPE || "web_search_20250305";
 
@@ -18,7 +18,7 @@ export const WEB_SEARCH_USD = 0.01;
 export const usage = { calls: 0, inputTokens: 0, outputTokens: 0, webSearches: 0, costUsd: 0 };
 
 function meter(model: string, u: any) {
-  const p = PRICES[model] ?? PRICES["claude-sonnet-5-5"];
+  const p = PRICES[model] ?? PRICES["claude-opus-5-5"];
   const input = (u?.input_tokens ?? 0) + (u?.cache_creation_input_tokens ?? 0) * 1.25 + (u?.cache_read_input_tokens ?? 0) * 0.1;
   const searches = u?.server_tool_use?.web_search_requests ?? 0;
   usage.calls++;

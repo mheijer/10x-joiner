@@ -36,18 +36,15 @@ npm run dev                  # http://localhost:3000
 - If you use Claude Code, point it at `PRD.md` first so it builds to the spec.
 
 ## Running evaluations (and what they cost)
-Each evaluation is ~$0.18-0.33 with Sonnet 5.5 (tokens + ~6 web searches at $0.01 each), ~$0.07 with Haiku 5.5.
-The seed script prints the running cost and a projection for all 556 companies. **Set a spend limit in the Anthropic Console first.**
+Model: **Claude Opus 5.5** by default (team decision). Each evaluation is ~$0.30-0.60 (tokens + ~6 web searches at $0.01 each).
+The seed script prints the running cost and a projection for all 556 companies. Account limit: **$50/month** (Anthropic Console).
 ```bash
-# FIRST RUN: test batch of 20 companies (the calibration set), ~$4-7 on Sonnet, stop at $10.
-# Runs are capped at 20 companies unless you pass --all.
-npm run seed -- --load                                       # load the 556 companies + map locations (free, ~5 min)
-npm run seed -- --evaluate --calibration --max-cost 10       # evaluate the 20 test companies into Supabase
-npm run seed -- --jobs                                       # pull job listings + salaries (free)
-npm run calibrate
+npm run seed -- --load        # load the 556 companies + map locations (free, ~5 min)
+npm run test-batch            # FIRST RUN: 10 test companies on Opus, ~$3-6, hard stop at $8
+npm run seed -- --jobs        # pull job listings + posted salaries (free)
+npm run calibrate             # compare engine scores with the team's gut scores (data/calibration.csv)
 ```
-Data is a snapshot: nothing refreshes automatically. To update later, re-run with `--force` (evaluations) or `--jobs` (job listings).
-Account budget: $50/month limit in the Anthropic Console.
-```
-```
-
+Test batch: Sierra, Decagon (head-to-head), Blitzy, Clay (LTV companies), CloudZero (mid-stage SaaS), Mendaera (pre-revenue
+medtech), Cursor (dev-tool hypergrowth), Nuro (deep tech), WHOOP (consumer hardware), Bedrock Robotics (sparse info).
+Runs are capped at 20 companies unless you pass --all. Data is a snapshot: nothing refreshes automatically; re-run with
+`--force` (evaluations) or `--jobs` (job listings) when you decide to update.
