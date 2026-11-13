@@ -10,6 +10,7 @@ Read `PRD.md` before building any feature. It defines the user (HBS joiners), th
 - Why each dimension exists and which LTV framework it maps to: `docs/SCORING_FRAMEWORK.md`. Update it whenever the rubric changes.
 - `lib/signals.ts`: free public-API traction signals (job board, Hacker News, App Store, GitHub, npm, PyPI), gathered before each evaluation.
 - `lib/fitmath.ts`: personal fit as plain math (pure, free, explainable). AI is used only in `lib/fit.ts`: `parseProfile` (once per user) and `explainFit` (per company opened, cached). Never call the AI per company per user.
+- `lib/personal.ts`: client-side personalization (profile state, personal score per company, which metric the list/map shows, first equity estimate). Pure. Team default weights stay the baseline until the user applies their own.
 - `lib/hiring.ts`: hiring profile (roles by function, hiring focus, posted salary bands). Pure.
 - `lib/equity.ts`: pure equity estimator and `estimatePackage` (grant estimate from financials + posted salary). `lib/jobs.ts`: Greenhouse/Lever/Ashby public boards. `lib/geocode.ts`: HQ → lat/lng.
 - `lib/claude.ts`, `lib/evaluate.ts`, `lib/fit.ts`: Claude API calls (server-only). `lib/supabase-admin.ts`: service-role client (server-only).

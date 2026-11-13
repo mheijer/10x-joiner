@@ -1,6 +1,6 @@
 "use client";
 // Scatter: any two measures against each other. Default: Probability of Winning vs Joiner Upside, with the four
-// quadrants (Pursue / Blue chip / Lottery ticket / Pass). Personal Fit becomes the default Y axis once profiles ship.
+// quadrants (Pursue / Blue chip / Lottery ticket / Pass). With a profile, "For you" and "Fit to you" become axes too.
 import { useState } from "react";
 import { ScatterChart, Scatter, XAxis, YAxis, ZAxis, CartesianGrid, Tooltip, ReferenceLine, ReferenceArea, ResponsiveContainer, Cell, LabelList } from "recharts";
 import type { CompanyRow } from "@/lib/supabase-public";
@@ -9,7 +9,7 @@ import { scoreColor, usd } from "@/lib/display";
 
 type Axis = { key: string; label: string; get: (c: CompanyRow) => number | null; domain: [number, number] | ["auto", "auto"] };
 
-const AXES: Axis[] = [
+const BASE_AXES: Axis[] = [
   { key: "composite", label: "Probability of Winning", get: (c) => c.composite, domain: [0, 100] },
   { key: "joiner_upside", label: "Joiner Upside", get: (c) => c.joiner_upside, domain: [0, 100] },
   ...DIMENSIONS.map((d) => ({ key: d.key, label: d.label, get: (c: CompanyRow) => c.scores?.[d.key]?.score ?? null, domain: [1, 5] as [number, number] })),
@@ -17,15 +17,33 @@ const AXES: Axis[] = [
   { key: "funding", label: "Total raised ($M)", get: (c) => (c.total_funding_usd != null ? c.total_funding_usd / 1e6 : null), domain: ["auto", "auto"] },
 ];
 
-export default function ScatterView({ companies, onSelect }: { companies: CompanyRow[]; onSelect: (id: string) => void }) {
+export default function ScatterView({
+  companies,
+  onSelect,
+  personalAxes,
+  colorOf,
+}: {
+  companies: CompanyRow[];
+  onSelect: (id: string) => void;
+  personalAxes?: { winning: (c: CompanyRow) => number | null; personal: (c: CompanyRow) => number | null; fit: (c: CompanyRow) => number | null } | null;
+  colorOf: (c: CompanyRow) => number | null;
+}) {
+  const AXES: Axis[] = personalAxes
+    ? [
+        { key: "composite", label: "Probability of Winning (your weights)", get: personalAxes.winning, domain: [0, 100] },
+        { key: "personal", label: "For you", get: personalAxes.personal, domain: [0, 100] },
+        { key: "fit", label: "Fit to you", get: personalAxes.fit, domain: [0, 100] },
+        ...BASE_AXES.filter((a) => a.key !== "composite"),
+      ]
+    : BASE_AXES;
   const [xKey, setX] = useState("composite");
   const [yKey, setY] = useState("joiner_upside");
-  const x = AXES.find((a) => a.key === xKey)!;
-  const y = AXES.find((a) => a.key === yKey)!;
+  const x = AXES.find((a) => a.key === xKey) ?? AXES[0];
+  const y = AXES.find((a) => a.key === yKey) ?? AXES[1];
   const quadrants = xKey === "composite" && yKey === "joiner_upside";
 
   const points = companies
-    .map((c) => ({ id: c.id, name: c.name, x: x.get(c), y: y.get(c), size: c.total_funding_usd ?? 0, color: scoreColor(c.composite), raised: c.total_funding_usd }))
+    .map((c) => ({ id: c.id, name: c.name, x: x.get(c), y: y.get(c), size: c.total_funding_usd ?? 0, color: scoreColor(colorOf(c)), raised: c.total_funding_usd }))
     .filter((p) => p.x != null && p.y != null);
 
   return (

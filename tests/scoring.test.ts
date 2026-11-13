@@ -57,3 +57,12 @@ console.log("rev/employee Sierra:", revenuePerEmployee(400e6,700));
 
 assert.ok(Math.abs(spearman([1,2,3,4,5],[2,1,4,3,5])-0.8)<1e-9); assert.equal(spearman([1,2,3],[3,2,1]),-1);
 console.log("ALL V2 CHECKS PASSED");
+import { contributions, joinerContributions } from "../lib/scoring.ts";
+{
+  const c = contributions(sierra);
+  const sum = Math.round(c.reduce((a, x) => a + x.points, 0) * 10) / 10;
+  assert.ok(Math.abs(sum - composite(sierra)) < 0.3, `points ${sum} vs composite ${composite(sierra)}`);
+  const j = joinerContributions(sierra);
+  assert.ok(Math.abs(j.reduce((a, x) => a + x.points, 0) - joinerUpside(sierra)) < 0.3);
+  console.log("contributions OK", sum);
+}
