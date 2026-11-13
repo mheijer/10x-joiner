@@ -1,10 +1,10 @@
 // Personalization with the AI used sparingly (server-only):
-//   1. parseProfile: ONE Sonnet call per user (re-run only when they edit their profile). Turns a résumé, cover
+//   1. parseProfile: ONE call per user (re-run only when they edit their profile). Turns a résumé, cover
 //      letter and free-text goals into structured preferences + suggested weights. Fit across all companies is then
 //      computed for free with plain math (lib/fitmath.ts).
 //   2. explainFit: ONE Sonnet call per company the user actually opens, cached in fit_scores. Writes the
 //      "why this fits you" explanation on top of the math breakdown.
-import { ask } from "./claude.ts";
+import { ask, askForTool } from "./claude.ts";
 import { DEFAULT_WEIGHTS, WINNING_DIMENSIONS } from "./rubric.ts";
 import { normalizeWeights, WEIGHT_PRESETS } from "./scoring.ts";
 import type { Weights } from "./scoring.ts";
@@ -31,44 +31,68 @@ Be concrete and brief. Never invent facts about the person. Return only JSON.`;
 
 const FUNCTIONS = "product | bizops | chief_of_staff | gtm | fde | marketing | engineering";
 
+const PROFILE_TOOL = {
+  name: "submit_profile",
+  description: "Submit the student's structured job-search preferences and suggested weights.",
+  input_schema: {
+    type: "object",
+    properties: {
+      summary: { type: "string", description: "One line: who they are and what they want" },
+      preferences: {
+        type: "object",
+        properties: {
+          target_functions: { type: "array", items: { type: "string", enum: ["product", "bizops", "chief_of_staff", "gtm", "fde", "marketing", "engineering"] } },
+          stage_buckets: { type: "array", items: { type: "string", enum: ["early", "mid", "late"] } },
+          headcount: { type: "array", items: { type: ["number", "null"] }, description: "[min, max]" },
+          locations: { type: "array", items: { type: "string" }, description: "Metros as 'City, ST'" },
+          work_policy: { type: "array", items: { type: "string", enum: ["onsite", "hybrid", "remote"] } },
+          needs_visa_sponsorship: { type: ["boolean", "null"] },
+          sectors: { type: "array", items: { type: "string" } },
+          interests: { type: "array", items: { type: "string" }, description: "Short keywords, e.g. healthcare, AI agents, fintech" },
+          customer_types: { type: "array", items: { type: "string", enum: ["enterprise", "mid_market", "smb", "consumer", "government"] } },
+          min_base_salary_usd: { type: ["number", "null"] },
+        },
+      },
+      preset: { type: "string", enum: ["balanced", "upside_seeker", "safety_first", "builder"] },
+      weights: {
+        type: "object",
+        properties: Object.fromEntries(WINNING_DIMENSIONS.map((d) => [d.key, { type: "number" }])),
+        required: WINNING_DIMENSIONS.map((d) => d.key),
+      },
+      weight_reasons: {
+        type: "object",
+        description: "Only for weights you changed from the default: one line citing what they said",
+        additionalProperties: { type: "string" },
+      },
+    },
+    required: ["summary", "preferences", "preset", "weights", "weight_reasons"],
+  },
+};
+
 export async function parseProfile(p: Profile): Promise<ParsedProfile> {
   const dims = WINNING_DIMENSIONS.map((d) => `"${d.key}" (${d.label}): default ${d.defaultWeight}`).join("\n");
-  const text = await ask({
+  // Structured output via a tool call (validated by the API), not free-text JSON.
+  const obj = await askForTool<any>({
     system: SYSTEM,
+    tool: PROFILE_TOOL,
+    maxTokens: 2000,
     prompt: `Read this student's background and goals. Extract their job-search preferences and suggest how to weight
-the company-evaluation dimensions for THEM. Only fill a preference if the text supports it; otherwise null or [].
+the company-evaluation dimensions for THEM. Only fill a preference if the text supports it; otherwise leave it out.
+Target functions: ${FUNCTIONS}.
 
 Background (résumé / cover letter):
-${p.background_text.slice(0, 8000)}
+${p.background_text.slice(0, 8000) || "(none provided)"}
 
 What they're looking for:
-${p.looking_for}
+${p.looking_for || "(none provided)"}
 
-Weight dimensions and defaults (rescaled to sum to 100; change only with a clear reason):
+Weight dimensions and defaults (rescaled to sum to 100; change only with a clear reason from their text):
 ${dims}
 Presets you may start from: balanced, upside_seeker (massive market, momentum, founders), safety_first (proven traction,
 economics, retired risks, runway), builder (great founders, momentum, hard problems).
 
-Return JSON:
-{
-  "summary": "one line: who they are and what they want",
-  "preferences": {
-    "target_functions": ["${FUNCTIONS}"],
-    "stage_buckets": ["early|mid|late"],
-    "headcount": [min|null, max|null],
-    "locations": ["City, ST"], "work_policy": ["onsite|hybrid|remote"],
-    "needs_visa_sponsorship": true|false|null,
-    "sectors": ["..."], "interests": ["short keywords, e.g. healthcare, AI agents, fintech"],
-    "customer_types": ["enterprise|mid_market|smb|consumer|government"],
-    "min_base_salary_usd": number|null
-  },
-  "preset": "balanced|upside_seeker|safety_first|builder",
-  "weights": {"<key>": number, ...every key},
-  "weight_reasons": {"<key>": "one line citing what they said, only for changed keys"}
-}`,
-    maxTokens: 2000,
+Submit by calling submit_profile.`,
   });
-  const obj = JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1));
   const preset = (obj.preset in WEIGHT_PRESETS ? obj.preset : "balanced") as keyof typeof WEIGHT_PRESETS;
   return {
     summary: String(obj.summary ?? ""),

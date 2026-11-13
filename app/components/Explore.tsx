@@ -1,20 +1,24 @@
 "use client";
 // Explore: filters (left), map or scatter (center), ranked list (right), scorecard panel on selection.
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import type { CompanyRow } from "@/lib/supabase-public";
 import { DIMENSIONS } from "@/lib/rubric";
 import { stageBucket } from "@/lib/equity";
 import { coverage } from "@/lib/coverage";
 import { scoreColor, quadrant } from "@/lib/display";
+import { isPersonalized, metricValue, personalFor, shownMetric, METRIC_LABEL, METRIC_SHORT } from "@/lib/personal";
+import type { Metric, Personal } from "@/lib/personal";
 import CompanyPanel from "./CompanyPanel";
 import ScatterView from "./ScatterView";
+import ProfileDrawer from "./ProfileDrawer";
+import { useProfile } from "./useProfile";
 
 const MapView = dynamic(() => import("./MapView"), { ssr: false, loading: () => <div className="empty">Loading map…</div> });
 
 type Bucket = "early" | "mid" | "late";
 type DimFilter = { key: string; min: number };
-type SortKey = "composite" | "joiner_upside" | "name" | "funding";
+type SortKey = "personal" | "composite" | "joiner_upside" | "name" | "funding";
 
 const metroOf = (hq: string | null) => (hq ? hq.split(",")[0].trim() : null);
 
@@ -34,6 +38,28 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
   const [visaOnly, setVisaOnly] = useState(false);
   const [sort, setSort] = useState<SortKey>("composite");
   const [selected, setSelected] = useState<string | null>(null);
+  const [lastScoreFilter, setLastScoreFilter] = useState<Metric | null>(null);
+  const [showProfile, setShowProfile] = useState(false);
+  const { profile, update, status, signedIn, accessToken, clearAll } = useProfile();
+  const personalized = isPersonalized(profile);
+
+  // Personal scores for every company: plain math in the browser, recomputed when the profile changes.
+  const personalById = useMemo(() => {
+    const m = new Map<string, Personal>();
+    for (const c of companies) m.set(c.id, personalFor(c as any, profile));
+    return m;
+  }, [companies, profile]);
+  const P = useCallback((c: CompanyRow) => personalById.get(c.id) ?? null, [personalById]);
+
+  // Once a profile exists, rank "For you" by default (until the user picks a sort themselves).
+  const sortTouched = useRef(false);
+  useEffect(() => {
+    if (personalized && !sortTouched.current && sort === "composite") setSort("personal");
+    if (!personalized && sort === "personal") setSort("composite");
+  }, [personalized]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const metric = shownMetric({ sort, lastScoreFilter, personalized });
+  const valueOf = useCallback((c: CompanyRow) => metricValue(c, metric, P(c)), [metric, P]);
 
   const metros = useMemo(() => {
     const counts = new Map<string, number>();
@@ -61,20 +87,24 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
       if (lo != null && (c.headcount == null || c.headcount < lo)) return false;
       if (hi != null && (c.headcount == null || c.headcount > hi)) return false;
       if (metro && metroOf(c.hq_city) !== metro) return false;
-      if (minWin > 0 && (c.composite ?? 0) < minWin) return false;
+      if (minWin > 0 && (P(c)?.winning ?? c.composite ?? 0) < minWin) return false;
       if (minUp > 0 && (c.joiner_upside ?? 0) < minUp) return false;
       for (const d of dims) if ((c.scores?.[d.key]?.score ?? 0) < d.min) return false;
       if (hideLowCoverage && coverage(c).level === "low") return false;
-      if (hideFlagged && (c.red_flags ?? []).some((f) => f.severity === "medium" || f.severity === "high")) return false;
+      if ((hideFlagged || profile.red_flag_mode === "hide") && (c.red_flags ?? []).some((f) => f.severity === "medium" || f.severity === "high")) return false;
       if (visaOnly && !(c.sponsors_visas === "yes" || c.sponsors_visas === "likely")) return false;
       return true;
     });
-  }, [companies, q, onlyEvaluated, scoreFiltersOn, stages, sizeMin, sizeMax, metro, minWin, minUp, dims, hideLowCoverage, hideFlagged, visaOnly]);
+  }, [companies, q, onlyEvaluated, scoreFiltersOn, stages, sizeMin, sizeMax, metro, minWin, minUp, dims, hideLowCoverage, hideFlagged, visaOnly, P, profile.red_flag_mode]);
 
   const sorted = useMemo(() => {
     const arr = [...filtered];
     const val = (c: CompanyRow) =>
-      sort === "composite" ? c.composite : sort === "joiner_upside" ? c.joiner_upside : sort === "funding" ? c.total_funding_usd : null;
+      sort === "personal" ? P(c)?.personal ?? null
+      : sort === "composite" ? P(c)?.winning ?? c.composite
+      : sort === "joiner_upside" ? c.joiner_upside
+      : sort === "funding" ? c.total_funding_usd
+      : null;
     arr.sort((a, b) => {
       if (sort === "name") return a.name.localeCompare(b.name);
       const va = val(a), vb = val(b);
@@ -84,14 +114,14 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
       return vb - va;
     });
     return arr;
-  }, [filtered, sort]);
+  }, [filtered, sort, P]);
 
   const selectedCompany = selected ? companies.find((c) => c.id === selected) ?? null : null;
   const evaluatedCount = companies.filter((c) => c.composite != null).length;
   const toggleStage = (b: Bucket) => setStages((s) => (s.includes(b) ? s.filter((x) => x !== b) : [...s, b]));
   const reset = () => {
     setQ(""); setOnlyEvaluated(false); setStages([]); setSizeMin(""); setSizeMax(""); setMetro("");
-    setMinWin(0); setMinUp(0); setDims([]); setHideLowCoverage(false); setHideFlagged(false); setVisaOnly(false);
+    setMinWin(0); setMinUp(0); setLastScoreFilter(null); setDims([]); setHideLowCoverage(false); setHideFlagged(false); setVisaOnly(false);
   };
 
   return (
@@ -106,6 +136,9 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
         <div className="muted small">
           {companies.length} companies · {evaluatedCount} evaluated · Rocketship List 2026 (US)
         </div>
+        <button className={`btn ${personalized ? "" : "primary"}`} onClick={() => setShowProfile(true)}>
+          {personalized ? "Your profile ✓" : "Personalize: tell us about you"}
+        </button>
       </header>
 
       {loadError ? (
@@ -157,11 +190,11 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
 
             <div className="fgroup">
               <label className="title">Probability of Winning ≥ {minWin}</label>
-              <input className="range" type="range" min={0} max={100} step={5} value={minWin} onChange={(e) => setMinWin(Number(e.target.value))} />
+              <input className="range" type="range" min={0} max={100} step={5} value={minWin} onChange={(e) => { const v = Number(e.target.value); setMinWin(v); setLastScoreFilter(v > 0 ? "composite" : minUp > 0 ? "joiner_upside" : null); }} />
             </div>
             <div className="fgroup">
               <label className="title">Joiner Upside ≥ {minUp}</label>
-              <input className="range" type="range" min={0} max={100} step={5} value={minUp} onChange={(e) => setMinUp(Number(e.target.value))} />
+              <input className="range" type="range" min={0} max={100} step={5} value={minUp} onChange={(e) => { const v = Number(e.target.value); setMinUp(v); setLastScoreFilter(v > 0 ? "joiner_upside" : minWin > 0 ? "composite" : null); if (v > 0 && sort !== "joiner_upside" && (sort === "composite" || sort === "personal")) { sortTouched.current = true; setSort("joiner_upside"); } }} />
             </div>
 
             <div className="fgroup">
@@ -197,37 +230,55 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
 
           <section className="center">
             {view === "map" ? (
-              <MapView companies={filtered} selectedId={selected} onSelect={setSelected} />
+              <MapView companies={filtered} selectedId={selected} onSelect={setSelected} valueOf={valueOf} metricLabel={METRIC_LABEL[metric]} />
             ) : (
-              <ScatterView companies={filtered} onSelect={setSelected} />
+              <ScatterView
+                companies={filtered}
+                onSelect={setSelected}
+                colorOf={valueOf}
+                personalAxes={personalized ? { winning: (c) => P(c)?.winning ?? null, personal: (c) => P(c)?.personal ?? null, fit: (c) => P(c)?.fit.score ?? null } : null}
+              />
             )}
-            {selectedCompany && <CompanyPanel c={selectedCompany} onClose={() => setSelected(null)} />}
+            {selectedCompany && <CompanyPanel c={selectedCompany} onClose={() => setSelected(null)} profile={profile} personal={P(selectedCompany)} />}
+            {showProfile && (
+              <ProfileDrawer profile={profile} update={update} status={status} signedIn={signedIn} accessToken={accessToken} clearAll={clearAll} onClose={() => setShowProfile(false)} />
+            )}
           </section>
 
           <aside className="list">
             <div className="listhead">
               <div className="row" style={{ justifyContent: "space-between" }}>
                 <strong>{sorted.length} companies</strong>
-                <select value={sort} onChange={(e) => setSort(e.target.value as SortKey)}>
+                <select value={sort} onChange={(e) => { sortTouched.current = true; setSort(e.target.value as SortKey); }}>
+                  {personalized && <option value="personal">Sort: For you</option>}
                   <option value="composite">Sort: Probability of Winning</option>
                   <option value="joiner_upside">Sort: Joiner Upside</option>
                   <option value="funding">Sort: Total raised</option>
                   <option value="name">Sort: Name</option>
                 </select>
               </div>
+              <div className="muted small" style={{ marginTop: 4 }}>
+                Badge shows <b>{METRIC_LABEL[metric]}</b>{metric === "personal" ? " (your weights + fit)" : profile.weights_source !== "default" && metric === "composite" ? " (your weights)" : ""}
+              </div>
             </div>
             {sorted.length === 0 && <div className="empty">No companies match these filters.</div>}
             {sorted.slice(0, 300).map((c) => {
               const cov = coverage(c);
               const flags = (c.red_flags ?? []).filter((f) => f.severity !== "low").length;
-              const quad = quadrant(c.composite, c.joiner_upside);
+              const pc = P(c);
+              const quad = quadrant(pc?.winning ?? c.composite, c.joiner_upside);
+              const shown = valueOf(c);
+              const others = (["composite", "joiner_upside", "personal"] as Metric[])
+                .filter((m) => m !== metric && (m !== "personal" || personalized))
+                .map((m) => [m, metricValue(c, m, pc)] as const)
+                .filter(([, v]) => v != null);
               return (
                 <div key={c.id} className={`item ${selected === c.id ? "sel" : ""}`} onClick={() => setSelected(c.id)}>
                   <div className="name">{c.name}</div>
                   <div>
-                    {c.composite != null ? (
-                      <span className="pill" style={{ background: scoreColor(c.composite) }} title="Probability of Winning">
-                        {Math.round(c.composite)}
+                    {shown != null ? (
+                      <span className="pill" style={{ background: scoreColor(shown) }} title={METRIC_LABEL[metric]}>
+                        {METRIC_SHORT[metric]} {Math.round(shown)}
                       </span>
                     ) : (
                       <span className="badge">Not evaluated</span>
@@ -235,7 +286,7 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
                   </div>
                   <div className="meta">
                     {[c.sector, c.stage, c.hq_city].filter(Boolean).join(" · ")}
-                    {c.joiner_upside != null && <> · Upside {Math.round(c.joiner_upside)}</>}
+                    {others.map(([m, v]) => <span key={m}> · {METRIC_SHORT[m]} {Math.round(v!)}</span>)}
                     {quad && <> · {quad}</>}
                     {c.composite != null && <> · <span className={`badge ${cov.level}`}>{cov.level} coverage</span></>}
                     {flags > 0 && <> · <span className="badge flag">{flags} red flag{flags > 1 ? "s" : ""}</span></>}

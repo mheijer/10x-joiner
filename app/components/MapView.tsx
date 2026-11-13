@@ -1,6 +1,6 @@
 "use client";
-// Map of companies (MapLibre + free OpenFreeMap tiles, no API key). Pins colored by Probability of Winning;
-// gray = not evaluated yet. Nearby pins cluster; click a cluster to zoom in, a pin to open the scorecard.
+// Map of companies (MapLibre + free OpenFreeMap tiles, no API key). Pins are colored by the metric the list is
+// showing (Probability of Winning, Joiner Upside or For you); gray = not evaluated yet. Nearby pins cluster; click a cluster to zoom in, a pin to open the scorecard.
 import { useMemo, useRef } from "react";
 import Map, { Source, Layer, NavigationControl } from "react-map-gl/maplibre";
 import type { MapRef, MapLayerMouseEvent } from "react-map-gl/maplibre";
@@ -14,10 +14,14 @@ export default function MapView({
   companies,
   selectedId,
   onSelect,
+  valueOf,
+  metricLabel,
 }: {
   companies: CompanyRow[];
   selectedId: string | null;
   onSelect: (id: string) => void;
+  valueOf: (c: CompanyRow) => number | null;
+  metricLabel: string;
 }) {
   const ref = useRef<MapRef>(null);
 
@@ -32,13 +36,13 @@ export default function MapView({
           properties: {
             id: c.id,
             name: c.name,
-            color: scoreColor(c.composite),
-            evaluated: c.composite != null ? 1 : 0,
+            color: scoreColor(valueOf(c)),
+            evaluated: valueOf(c) != null ? 1 : 0,
             selected: c.id === selectedId ? 1 : 0,
           },
         })),
     }),
-    [companies, selectedId],
+    [companies, selectedId, valueOf],
   );
 
   const onClick = async (e: MapLayerMouseEvent) => {
@@ -109,7 +113,7 @@ export default function MapView({
         </Source>
       </Map>
       <div style={{ position: "absolute", left: 12, bottom: 12, background: "#fff", border: "1px solid var(--border)", borderRadius: 8, padding: "6px 10px", fontSize: 12 }}>
-        <b>Probability of Winning</b>{" "}
+        <b>{metricLabel}</b>{" "}
         {[["≥75", "#15803d"], ["60–74", "#65a30d"], ["45–59", "#d97706"], ["<45", "#dc2626"], ["not evaluated", "#9ca3af"]].map(([l, c]) => (
           <span key={l} style={{ marginLeft: 8, whiteSpace: "nowrap" }}>
             <span style={{ display: "inline-block", width: 9, height: 9, borderRadius: 9, background: c, marginRight: 4 }} />

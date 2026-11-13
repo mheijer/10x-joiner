@@ -105,3 +105,34 @@ export function personalScore(params: {
   const penalty = params.penalizeRedFlags ? redFlagPenalty(params.redFlags ?? []) : 0;
   return r1(Math.max(0, base - penalty));
 }
+
+/**
+ * How each dimension contributes to Probability of Winning under the given weights: points earned out of the
+ * dimension's normalized weight. Points sum to the composite. Used to show the math on the scorecard.
+ */
+export function contributions(
+  scores: Scores,
+  weights: Partial<Weights> = DEFAULT_WEIGHTS,
+): { key: WinningKey; weight: number; points: number; adjusted: number }[] {
+  const w = normalizeWeights(weights);
+  const present = WINNING_DIMENSIONS.filter((d) => scores[d.key] && (w[d.key as WinningKey] ?? 0) > 0);
+  const wsum = present.reduce((a, d) => a + w[d.key as WinningKey], 0) || 1;
+  return WINNING_DIMENSIONS.map((d) => {
+    const key = d.key as WinningKey;
+    const s = scores[key];
+    const weight = Math.round((w[key] / wsum) * 1000) / 10; // share of 100 among graded dimensions
+    if (!s) return { key, weight, points: 0, adjusted: 0 };
+    const adjusted = adjustedScore(s);
+    return { key, weight, points: Math.round(weight * ((adjusted - 1) / 4) * 10) / 10, adjusted };
+  });
+}
+
+/** Joiner Upside breakdown: each joiner dimension's points out of its share of 100. */
+export function joinerContributions(scores: Scores): { key: DimensionKey; weight: number; points: number }[] {
+  const total = JOINER_DIMENSIONS.reduce((a, d) => a + d.defaultWeight, 0);
+  return JOINER_DIMENSIONS.map((d) => {
+    const s = scores[d.key];
+    const weight = (d.defaultWeight / total) * 100;
+    return { key: d.key, weight, points: s ? Math.round(weight * ((adjustedScore(s) - 1) / 4) * 10) / 10 : 0 };
+  });
+}
