@@ -37,6 +37,7 @@ export interface SimState {
 }
 
 export interface SimSources {
+  odds: string; // how the exit odds were set
   valuation: string; // where today's valuation came from
   preference: string;
   base: string;
@@ -45,6 +46,7 @@ export interface SimSources {
 
 export interface SimCompany {
   name: string;
+  winning?: number | null; // Probability of Winning 0-100: nudges the exit odds (company-specific defaults)
   stage?: string | null;
   pmfScore?: number | null;
   latest_post_money_usd?: number | null;
@@ -80,17 +82,39 @@ export function defaultSim(c: SimCompany, base: { usd: number; source: string })
       postMoneyUsd,
       preferenceUsd,
       rounds: defaultFutureRounds(c.stage),
-      scenarios: SCENARIO_TABLE[bucket].map((s) => ({ label: s.label, multiple: s.multiple, probability: Math.round(s.probability * 100) })),
+      scenarios: companyOdds(bucket, c.winning),
       yearsStay: 4,
       preferredOwnershipAtExit: 0.55,
     },
     sources: {
+      odds:
+        c.winning != null
+          ? `${bucket}-stage odds, adjusted for this company's Probability of Winning (${Math.round(c.winning)})`
+          : `${bucket}-stage rules of thumb (not scored yet, so not adjusted)`,
       valuation,
       preference: c.total_funding_usd ? "total raised to date (≈ 1x preference on every round)" : "unknown: no funding data",
       base: base.source,
       bucket,
     },
   };
+}
+
+/**
+ * Exit odds for this company: the stage table, nudged by Probability of Winning. A 60 leaves the table as is;
+ * stronger companies bust less and hit the big outcomes more often, weaker ones the reverse (capped).
+ */
+export function companyOdds(bucket: StageBucket, winning?: number | null): SimScenario[] {
+  const t = SCENARIO_TABLE[bucket];
+  const f = winning == null ? 0 : Math.max(-1, Math.min(1, (winning - 60) / 30));
+  const raw = t.map((x) => {
+    const adj = x.label === "Bust" ? 1 - 0.4 * f : x.label === "Rocketship" ? 1 + 0.6 * f : x.label === "Base" ? 1 + 0.25 * f : 1;
+    return { label: x.label, multiple: x.multiple, p: x.probability * adj };
+  });
+  const sum = raw.reduce((a, x) => a + x.p, 0);
+  const out = raw.map((x) => ({ label: x.label, multiple: x.multiple, probability: Math.round((x.p / sum) * 100) }));
+  const drift = 100 - out.reduce((a, x) => a + x.probability, 0); // keep whole percents summing to 100
+  out[1].probability += drift;
+  return out;
 }
 
 export interface SimResult {

@@ -6,30 +6,21 @@ import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid } from "recharts";
 import type { CompanyRow } from "@/lib/supabase-public";
-import { defaultSim, runSim } from "@/lib/simulator";
-import type { SimState } from "@/lib/simulator";
-import { baseSalaryFor } from "@/lib/personal";
-import type { Preferences } from "@/lib/filters";
+import { runSim } from "@/lib/simulator";
+import type { SimState, defaultSim } from "@/lib/simulator";
 import { usd } from "@/lib/display";
 
 const OUTCOME_COLOR: Record<string, string> = { Bust: "#dc2626", Modest: "#d97706", Base: "#65a30d", Rocketship: "#15803d" };
 
-export default function EquitySimulator({ c, prefs, onClose }: { c: CompanyRow; prefs: Preferences; onClose: () => void }) {
-  const initial = useMemo(
-    () =>
-      defaultSim(
-        {
-          name: c.name,
-          stage: c.stage,
-          pmfScore: c.scores?.pmf?.score ?? null,
-          latest_post_money_usd: c.latest_post_money_usd,
-          post_money_is_estimate: c.post_money_is_estimate,
-          total_funding_usd: c.total_funding_usd,
-        },
-        baseSalaryFor(c.hiring_profile, prefs),
-      ),
-    [c, prefs],
-  );
+export default function EquitySimulator({
+  c,
+  initial,
+  onClose,
+}: {
+  c: CompanyRow;
+  initial: ReturnType<typeof defaultSim>; // the same company-specific estimate the panel shows
+  onClose: () => void;
+}) {
   const [s, setS] = useState<SimState>(initial.state);
   const [edited, setEdited] = useState<Set<string>>(new Set());
   const set = (patch: Partial<SimState>, key: string) => {
@@ -58,15 +49,20 @@ export default function EquitySimulator({ c, prefs, onClose }: { c: CompanyRow; 
         <div className="simgrid">
           {/* ------------------------------------------------ inputs */}
           <div className="siminputs small">
+            <h4>Your base salary</h4>
+            <Field label="Base salary ($)" hint={src("base", initial.sources.base)}>
+              <input type="number" step={5000} value={s.baseSalaryUsd} onChange={(e) => set({ baseSalaryUsd: Number(e.target.value) }, "base")} />
+            </Field>
+            <div className="muted">Everything else is pre-filled for {c.name}. Change it only if you know better.</div>
+
+            <details className="moreassump" open={edited.size > 0 && !(edited.size === 1 && edited.has("base"))}>
+            <summary>Change other assumptions</summary>
             <h4>Your offer</h4>
             <div className="chips">
               {([["estimate", "Estimate it for me"], ["percent", "I know my %"], ["shares", "I know my shares"]] as const).map(([k, l]) => (
                 <button key={k} className={`chip ${s.offerMode === k ? "on" : ""}`} onClick={() => set({ offerMode: k }, "offer")}>{l}</button>
               ))}
             </div>
-            <Field label="Base salary ($)" hint={src("base", initial.sources.base)}>
-              <input type="number" step={5000} value={s.baseSalaryUsd} onChange={(e) => set({ baseSalaryUsd: Number(e.target.value) }, "base")} />
-            </Field>
             {s.offerMode === "estimate" && (
               <Field label="Grant size" hint={`Rule of thumb for a ${initial.sources.bucket}-stage company: 4-year grant worth this multiple of base at today's price. Not market data.`}>
                 <div className="chips">
@@ -129,7 +125,7 @@ export default function EquitySimulator({ c, prefs, onClose }: { c: CompanyRow; 
             <button className="linkbtn" onClick={() => set({ rounds: [...s.rounds, { name: `Round ${s.rounds.length + 1}`, stepUp: 1.5, dilution: 0.1 }] }, "rounds")}>+ Add a round</button>
 
             <h4>How it could end</h4>
-            <div className="muted">Exit value as a multiple of today's valuation, and the odds of each. Defaults are {initial.sources.bucket}-stage rules of thumb.</div>
+            <div className="muted">Exit value as a multiple of today's valuation, and the odds of each. {src("scen", `Defaults: ${initial.sources.odds}.`)}</div>
             <div className="roundhead"><span>Outcome</span><span>Exit (x today)</span><span>Odds %</span><span /></div>
             {s.scenarios.map((sc, i) => (
               <div className="roundrow" key={i}>
@@ -143,6 +139,7 @@ export default function EquitySimulator({ c, prefs, onClose }: { c: CompanyRow; 
             <Field label={`Investors' share of the company at exit: ${Math.round(s.preferredOwnershipAtExit * 100)}%`} hint="Decides when investors convert to common instead of taking their preference">
               <input className="range" type="range" min={20} max={90} step={5} value={Math.round(s.preferredOwnershipAtExit * 100)} onChange={(e) => set({ preferredOwnershipAtExit: Number(e.target.value) / 100 }, "prefown")} />
             </Field>
+            </details>
           </div>
 
           {/* ------------------------------------------------ results */}

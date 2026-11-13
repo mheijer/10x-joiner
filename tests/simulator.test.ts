@@ -38,4 +38,10 @@ assert.ok(runSim(bigger, "mid").expectedValueUsd > r.expectedValueUsd);
 const nov = defaultSim({ ...co, latest_post_money_usd: null }, { usd: 200000, source: "t" });
 assert.equal(nov.state.postMoneyUsd, 750e6);
 assert.match(nov.sources.valuation, /rough guess/);
+// Company-specific odds: a stronger company busts less; 60 = stage table; always sums to 100
+import { companyOdds } from "../lib/simulator.ts";
+const strong = companyOdds("mid", 86), avg = companyOdds("mid", 60), weak = companyOdds("mid", 40);
+assert.ok(strong[0].probability < avg[0].probability && avg[0].probability < weak[0].probability);
+assert.equal(avg[0].probability, 30);
+for (const o of [strong, avg, weak]) assert.equal(o.reduce((a, x) => a + x.probability, 0), 100);
 console.log("SIMULATOR OK", { ev: r.expectedValueUsd, perYear: r.equityPerYearUsd, breakEven: r.breakEvenExitUsd });

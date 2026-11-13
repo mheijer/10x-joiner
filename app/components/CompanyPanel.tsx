@@ -2,14 +2,15 @@
 // Scorecard panel for one company: the scores (each one clickable to its breakdown), quadrant, coverage caveat, key
 // facts, red flags, the LTV scorecard with each dimension's weight and points earned, the Joiner Upside breakdown
 // with a first equity estimate, the fit to you, and hiring. Every number shows its source or is marked an estimate.
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import type { ReactNode, RefObject } from "react";
 import type { CompanyRow } from "@/lib/supabase-public";
 import { DIMENSIONS, DEFAULT_WEIGHTS, JOINER_DIMENSIONS } from "@/lib/rubric";
 import { contributions, joinerContributions } from "@/lib/scoring";
 import { coverage } from "@/lib/coverage";
 import { usd, num, scoreColor, quadrant, PHASE_LABEL } from "@/lib/display";
-import { activeWeights, effectivePreferences, firstEquityEstimate, isPersonalized } from "@/lib/personal";
+import { activeWeights, baseSalaryFor, effectivePreferences, isPersonalized } from "@/lib/personal";
+import { defaultSim, runSim, grantPctFor } from "@/lib/simulator";
 import type { Personal, ProfileState } from "@/lib/personal";
 import EquitySimulator from "./EquitySimulator";
 
@@ -69,7 +70,27 @@ export default function CompanyPanel({
   const [baseInput, setBaseInput] = useState<string>("");
   const [simOpen, setSimOpen] = useState(false);
   const prefs = effectivePreferences(profile);
-  const eq = evaluated ? firstEquityEstimate(c, prefs, baseInput ? Number(baseInput) : null) : null;
+  const eqRef = useRef<HTMLDivElement>(null);
+  // One estimate, shared by this panel and the simulator: company-specific defaults (valuation, raised, stage judged
+  // by traction, exit odds nudged by Probability of Winning, posted pay for your role).
+  const est = useMemo(() => {
+    const base = baseSalaryFor(c.hiring_profile, prefs, baseInput ? Number(baseInput) : null);
+    const sim = defaultSim(
+      {
+        name: c.name, stage: c.stage, pmfScore: c.scores?.pmf?.score ?? null, winning: winning ?? null,
+        latest_post_money_usd: c.latest_post_money_usd, post_money_is_estimate: c.post_money_is_estimate, total_funding_usd: c.total_funding_usd,
+      },
+      base,
+    );
+    const b = sim.sources.bucket;
+    return {
+      base,
+      sim,
+      result: sim.state.postMoneyUsd ? runSim(sim.state, b) : null,
+      lowPct: grantPctFor({ ...sim.state, estimateLevel: "low" }, b),
+      highPct: grantPctFor({ ...sim.state, estimateLevel: "high" }, b),
+    };
+  }, [c, prefs, baseInput, winning]);
 
   const contrib = evaluated ? contributions(c.scores as any, weights) : [];
   const jcontrib = evaluated ? joinerContributions(c.scores as any) : [];
@@ -86,8 +107,19 @@ export default function CompanyPanel({
         )}
       </div>
 
-      <button className="btn simbtn" onClick={() => setSimOpen(true)}>💰 Equity simulator: what could my stock be worth?</button>
-      {simOpen && <EquitySimulator c={c} prefs={prefs} onClose={() => setSimOpen(false)} />}
+      {/* Equity at a glance: easy to find, one click to the details */}
+      <button className="equitycard" onClick={() => (evaluated ? go(eqRef) : setSimOpen(true))}>
+        <span>💰 <b>Your equity, estimated</b></span>
+        <span>
+          {est.result ? (
+            <>≈ <b>{usd(est.result.expectedValueUsd)}</b> expected over 4 yrs · {usd(est.result.totalCompPerYearUsd)}/yr with base</>
+          ) : (
+            "Enter a valuation to estimate"
+          )}
+        </span>
+        <span className="muted">Based on a {usd(est.base.usd)} base{est.base.isAssumption ? " (assumed)" : ""} · see how ›</span>
+      </button>
+      {simOpen && <EquitySimulator c={c} initial={est.sim} onClose={() => setSimOpen(false)} />}
 
       {!evaluated ? (
         <p className="note" style={{ marginTop: 12 }}>
@@ -213,62 +245,9 @@ export default function CompanyPanel({
             );
           })}
 
-          <h4 className="subsect">First equity estimate (illustrative)</h4>
-          {!eq ? (
-            <div className="note">No valuation found for {c.name}. <button className="linkbtn" onClick={() => setSimOpen(true)}>Enter one in the equity simulator</button>.</div>
-          ) : (
-            <div className="equity small">
-              <div className="row" style={{ flexWrap: "wrap", gap: 6, marginBottom: 6 }}>
-                <span>Base salary</span>
-                <input
-                  type="number"
-                  className="baseinput"
-                  placeholder={String(Math.round(eq.base.usd))}
-                  value={baseInput}
-                  onChange={(e) => setBaseInput(e.target.value)}
-                />
-                <span className="muted">
-                  {usd(eq.base.usd)}: {eq.base.source}
-                  {eq.base.isAssumption && <span className="badge medium" style={{ marginLeft: 4 }}>assumption</span>}
-                </span>
-              </div>
-              {eq.estimate.grant && (
-                <div className="facts" style={{ margin: "4px 0 8px" }}>
-                  <div><span className="muted">Likely grant (estimate)</span><br />{fmtPct(eq.estimate.grant.pct_low)}–{fmtPct(eq.estimate.grant.pct_high)} of the company</div>
-                  <div><span className="muted">Paper value today (mid)</span><br />{usd(eq.estimate.grant.value_mid_usd)} over 4 years</div>
-                  <div><span className="muted">Instrument</span><br />{eq.estimate.instrument}{eq.estimate.exercise_cost_usd > 0 ? ` · ~${usd(eq.estimate.exercise_cost_usd)} to exercise` : ""}</div>
-                  <div><span className="muted">Expected value (probability-weighted)</span><br /><b>{usd(eq.estimate.equity?.expectedValueUsd)}</b>{eq.estimate.annualized_mid_usd ? ` · ≈${usd(eq.estimate.annualized_mid_usd)}/yr with base` : ""}</div>
-                </div>
-              )}
-              {eq.estimate.equity && (
-                <table className="eqtable">
-                  <thead>
-                    <tr><th>Outcome</th><th>Odds</th><th>Exit value</th><th>Your stake</th></tr>
-                  </thead>
-                  <tbody>
-                    {eq.estimate.equity.scenarios.map((s) => (
-                      <tr key={s.label}>
-                        <td>{s.label}</td>
-                        <td>{Math.round(s.probability * 100)}%</td>
-                        <td>{usd(s.exitValueUsd)}</td>
-                        <td>{usd(s.netValueUsd)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-              <details style={{ marginTop: 6 }}>
-                <summary className="muted">All assumptions ({eq.estimate.assumptions.length})</summary>
-                <ul className="assumptions">
-                  {eq.estimate.assumptions.map((a, i) => <li key={i}>{a}</li>)}
-                </ul>
-              </details>
-              <button className="btn primary" style={{ marginTop: 8 }} onClick={() => setSimOpen(true)}>Change the assumptions in the equity simulator →</button>
-              <div className="muted" style={{ marginTop: 4 }}>
-                Rule-of-thumb grant sizes and stage-based exit odds, not market data or financial advice. Replace with a real offer when you have one.
-              </div>
-            </div>
-          )}
+          <div ref={eqRef} />
+          <h4 className="subsect">Your equity, estimated</h4>
+          <EquityEstimate c={c} est={est} baseInput={baseInput} setBaseInput={setBaseInput} openSim={() => setSimOpen(true)} />
         </>
       )}
 
@@ -324,3 +303,73 @@ const FIT_LABEL: Record<string, string> = {
 };
 
 const fmtPct = (x: number) => `${x.toFixed(x < 0.01 ? 3 : 2)}%`;
+
+/** The estimate as it stands: only base salary needs editing; everything else has company-specific defaults. */
+function EquityEstimate({
+  c,
+  est,
+  baseInput,
+  setBaseInput,
+  openSim,
+}: {
+  c: CompanyRow;
+  est: {
+    base: { usd: number; source: string; isAssumption: boolean };
+    sim: ReturnType<typeof defaultSim>;
+    result: ReturnType<typeof runSim> | null;
+    lowPct: number;
+    highPct: number;
+  };
+  baseInput: string;
+  setBaseInput: (v: string) => void;
+  openSim: () => void;
+}) {
+  const r = est.result;
+  const st = est.sim.state;
+  return (
+    <div className="equity small">
+      <div className="row" style={{ flexWrap: "wrap", gap: 6, marginBottom: 6 }}>
+        <span>Base salary</span>
+        <input type="number" className="baseinput" placeholder={String(Math.round(est.base.usd))} value={baseInput} onChange={(e) => setBaseInput(e.target.value)} />
+        <span className="muted">
+          {usd(est.base.usd)}: {est.base.source}
+          {est.base.isAssumption && <span className="badge medium" style={{ marginLeft: 4 }}>assumption</span>}
+        </span>
+      </div>
+      {!r ? (
+        <div className="note">No valuation found for {c.name}. <button className="linkbtn" onClick={openSim}>Enter one</button> to estimate your equity.</div>
+      ) : (
+        <>
+          <div className="facts" style={{ margin: "4px 0 8px" }}>
+            <div><span className="muted">Likely grant (estimate)</span><br />{fmtPct(est.lowPct)}–{fmtPct(est.highPct)} of the company</div>
+            <div><span className="muted">Paper value today (mid)</span><br />{usd(r.grantValueTodayUsd)} over 4 years</div>
+            <div><span className="muted">Instrument</span><br />{st.instrument}{r.exerciseCostUsd > 0 ? ` · ~${usd(r.exerciseCostUsd)} to exercise` : ""}</div>
+            <div><span className="muted">Expected value (probability-weighted)</span><br /><b>{usd(r.expectedValueUsd)}</b> · ≈{usd(r.totalCompPerYearUsd)}/yr with base</div>
+          </div>
+          <table className="eqtable">
+            <thead><tr><th>Outcome</th><th>Odds</th><th>Exit value</th><th>Your stake</th></tr></thead>
+            <tbody>
+              {r.equity.scenarios.map((x) => (
+                <tr key={x.label}><td>{x.label}</td><td>{Math.round(x.probability * 100)}%</td><td>{usd(x.exitValueUsd)}</td><td>{usd(x.netValueUsd)}</td></tr>
+              ))}
+            </tbody>
+          </table>
+          <details style={{ marginTop: 6 }}>
+            <summary className="muted">Where these numbers come from</summary>
+            <ul className="assumptions">
+              <li>Valuation {usd(st.postMoneyUsd)}: {est.sim.sources.valuation}.</li>
+              <li>Investor preference {usd(st.preferenceUsd)}: {est.sim.sources.preference}.</li>
+              <li>Stage treated as {est.sim.sources.bucket} (judged by traction, not just the round name).</li>
+              <li>Grant: 4-year grant worth {est.sim.sources.bucket === "early" ? "1–2.5x" : est.sim.sources.bucket === "mid" ? "0.5–1.5x" : "0.3–0.9x"} base at today's price (rule of thumb, midpoint used).</li>
+              <li>Future rounds: {st.rounds.map((x) => `${x.name} (${Math.round(x.dilution * 100)}% dilution, ${x.stepUp}x)`).join(", ") || "none"}.</li>
+              <li>Exit odds: {est.sim.sources.odds}.</li>
+              <li>4-year vesting, 1-year cliff, you stay all 4 years. Taxes ignored.</li>
+            </ul>
+          </details>
+        </>
+      )}
+      <button className="btn" style={{ marginTop: 8 }} onClick={openSim}>Change other assumptions →</button>
+      <div className="muted" style={{ marginTop: 4 }}>Rules of thumb, not market data or financial advice. Replace with a real offer when you have one.</div>
+    </div>
+  );
+}
