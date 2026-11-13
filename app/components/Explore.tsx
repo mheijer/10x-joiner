@@ -197,6 +197,7 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
         <div className="muted small">
           {companies.length} companies · {evaluatedCount} evaluated · Rocketship List 2026 (US)
         </div>
+        <button className="btn" onClick={() => setShowAdd(true)} title="Research and score a company that isn't on the list">+ Add a company</button>
         <button className={`btn ${personalized ? "" : "primary"}`} onClick={() => setShowProfile(true)}>
           {email ? `${email.split("@")[0]} · profile` : personalized ? "Your profile ✓" : "Personalize: tell us about you"}
         </button>
@@ -342,12 +343,11 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
 
           <aside className="list">
             <div className="listhead">
-              <div className="row" style={{ justifyContent: "space-between" }}>
-                <strong>{sorted.length} companies</strong>
-                <button className="linkbtn" onClick={() => setShowAdd(true)}>+ Add a company</button>
-                <select value={sort} onChange={(e) => { sortTouched.current = true; setAiOrder(false); setSort(e.target.value as SortKey); }}>
+              <div className="row" style={{ justifyContent: "space-between", flexWrap: "nowrap" }}>
+                <strong className="count">{sorted.length.toLocaleString()} {sorted.length === 1 ? "company" : "companies"}</strong>
+                <select className="sortsel" value={sort} onChange={(e) => { sortTouched.current = true; setAiOrder(false); setSort(e.target.value as SortKey); }}>
                   {personalized && <option value="personal">Sort: For you</option>}
-                  <option value="composite">Sort: Probability of Winning</option>
+                  <option value="composite">Sort: Winning</option>
                   <option value="joiner_upside">Sort: Joiner Upside</option>
                   <option value="funding">Sort: Total raised</option>
                   <option value="name">Sort: Name</option>
@@ -369,7 +369,10 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
                 ) : ai ? (
                   "The AI found no good matches. Try rephrasing."
                 ) : q.trim() ? (
-                  <>No companies match "{q.trim()}". Try <button className="linkbtn" onClick={() => askAi(q)}>asking the AI</button> instead.</>
+                  <>
+                    No companies match "{q.trim()}". Try <button className="linkbtn" onClick={() => askAi(q)}>asking the AI</button>, or{" "}
+                    <button className="linkbtn" onClick={() => setShowAdd(true)}>add it</button> if it's missing.
+                  </>
                 ) : (
                   "No companies match these filters."
                 )}
@@ -414,6 +417,11 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
                 </div>
               );
             })}
+            {sorted.length > 0 && (
+              <div className="listfoot small muted">
+                Missing a company? <button className="linkbtn" onClick={() => setShowAdd(true)}>Add it</button>
+              </div>
+            )}
             {sorted.length > 300 && <div className="empty small">Showing the first 300. Narrow the filters to see more.</div>}
           </aside>
         </div>
