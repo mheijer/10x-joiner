@@ -63,12 +63,19 @@ export async function hackerNewsSignal(name: string, domain?: string | null): Pr
   };
 }
 
-/** App Store rating volume for consumer apps (rating count is a rough proxy for usage). */
-export async function appStoreSignal(name: string): Promise<Signal | null> {
-  const j = await getJson(`https://itunes.apple.com/search?entity=software&country=us&limit=5&term=${encodeURIComponent(name)}`);
-  const app = (j?.results ?? []).find(
-    (a: any) => a.sellerName?.toLowerCase().includes(name.toLowerCase()) || a.trackName?.toLowerCase().startsWith(name.toLowerCase()),
-  );
+/**
+ * App Store rating volume for consumer apps (rating count is a rough proxy for usage).
+ * Only counts an app whose seller website matches the company's domain: name matching alone picked up the
+ * off-price retailer "Sierra" for Sierra AI in the first test batch.
+ */
+export async function appStoreSignal(name: string, domain?: string | null): Promise<Signal | null> {
+  if (!domain) return null;
+  const j = await getJson(`https://itunes.apple.com/search?entity=software&country=us&limit=10&term=${encodeURIComponent(name)}`);
+  const root = domain.toLowerCase().replace(/^www\./, "");
+  const app = (j?.results ?? []).find((a: any) => {
+    const seller = String(a.sellerUrl ?? "").toLowerCase();
+    return seller.includes(root);
+  });
   if (!app || !app.userRatingCount) return null;
   return {
     type: "usage",
@@ -157,7 +164,7 @@ export async function collectSignals(opts: {
   const slug = (opts.domain ?? opts.name).toLowerCase().replace(/^www\./, "").split(".")[0].replace(/[^a-z0-9-]/g, "");
   const domain = opts.domain?.toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0] ?? null;
   const tasks: Promise<Signal | null>[] = [hackerNewsSignal(opts.name, domain)];
-  if (opts.isConsumer !== false) tasks.push(appStoreSignal(opts.name));
+  if (opts.isConsumer !== false) tasks.push(appStoreSignal(opts.name, domain));
   if (opts.isDevTool !== false) tasks.push(githubSignal(slug), npmSignal(slug), pypiSignal(slug));
   const found = (await Promise.all(tasks)).filter((s): s is Signal => !!s);
   if (opts.jobsByFunction && opts.jobBoardUrl) {

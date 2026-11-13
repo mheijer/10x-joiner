@@ -1,10 +1,19 @@
-// Placeholder home page. The Explore view (map + ranked list) replaces this; see PRD §7.2.
-export default function Home() {
-  return (
-    <main style={{ padding: 48, maxWidth: 720 }}>
-      <h1>The Next 10x Joiner</h1>
-      <p>Find the rocketship startups that fit you, scored with LTV frameworks.</p>
-      <p style={{ color: "#666" }}>Under construction: map, ranked list and scatter coming next.</p>
-    </main>
-  );
+// Home: Explore (map + ranked list) and Scatter. Data is read on the server with the public key (RLS applies).
+import Explore from "./components/Explore";
+import { supabasePublic, EXPLORE_COLUMNS } from "@/lib/supabase-public";
+import type { CompanyRow } from "@/lib/supabase-public";
+
+export const dynamic = "force-dynamic"; // always read fresh rows; never at build time
+
+export default async function Home() {
+  let companies: CompanyRow[] = [];
+  let error: string | null = null;
+  try {
+    const { data, error: e } = await supabasePublic().from("company_latest").select(EXPLORE_COLUMNS).limit(2000);
+    if (e) throw e;
+    companies = (data ?? []) as unknown as CompanyRow[];
+  } catch (e: any) {
+    error = e?.message ?? String(e);
+  }
+  return <Explore companies={companies} loadError={error} />;
 }
