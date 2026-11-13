@@ -154,3 +154,8 @@ a { color: var(--accent); }
 .equitycard:hover { border-color: #15803d; }
 .moreassump { margin-top: 10px; border-top: 1px solid var(--border); padding-top: 6px; }
 .moreassump > summary { cursor: pointer; font-weight: 600; color: var(--accent); }
+
+/* List header + footer */
+.listhead .count { font-size: 15px; white-space: nowrap; }
+.sortsel { font: inherit; font-size: 13px; padding: 4px 6px; border: 1px solid var(--border); border-radius: 8px; background: #fff; max-width: 170px; }
+.listfoot { padding: 14px; text-align: center; }
