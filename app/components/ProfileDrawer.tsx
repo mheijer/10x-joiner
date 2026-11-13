@@ -21,7 +21,7 @@ const WORK: ["onsite" | "hybrid" | "remote", string][] = [["onsite", "Onsite"], 
 const STATUS_TEXT: Record<SyncStatus, string> = {
   connecting: "Connecting…",
   saving: "Saving…",
-  saved: "Saved to your account (this browser stays signed in)",
+  saved: "Saved",
   local: "Saved on this device only",
   error: "Couldn't save to your account; kept on this device",
 };
@@ -36,6 +36,9 @@ export default function ProfileDrawer({
   accessToken,
   clearAll,
   onClose,
+  email,
+  sendSignInLink,
+  signOut,
 }: {
   profile: ProfileState;
   update: (p: Partial<ProfileState> | ((p: ProfileState) => ProfileState)) => void;
@@ -44,7 +47,18 @@ export default function ProfileDrawer({
   accessToken: () => Promise<string | null>;
   clearAll: () => void;
   onClose: () => void;
+  email: string | null;
+  sendSignInLink: (email: string) => Promise<string | null>;
+  signOut: () => Promise<void>;
 }) {
+  const [emailInput, setEmailInput] = useState("");
+  const [linkState, setLinkState] = useState<"idle" | "sending" | "sent" | string>("idle");
+  async function sendLink() {
+    if (!/^\S+@\S+\.\S+$/.test(emailInput.trim())) return setLinkState("Enter a valid email address.");
+    setLinkState("sending");
+    const err = await sendSignInLink(emailInput);
+    setLinkState(err ?? "sent");
+  }
   const [busy, setBusy] = useState<"upload" | "parse" | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const prefs = profile.preferences ?? {};
@@ -122,6 +136,34 @@ export default function ProfileDrawer({
         <button className="close" onClick={onClose} aria-label="Close">✕</button>
       </div>
       <div className="drawerbody">
+        {/* Account */}
+        <section className="account small">
+          {email ? (
+            <div className="row" style={{ justifyContent: "space-between", flexWrap: "wrap" }}>
+              <span>Signed in as <b>{email}</b>. Your profile follows you to any device.</span>
+              <button className="linkbtn" onClick={() => { if (confirm("Sign out on this browser? Your profile stays saved in your account.")) void signOut(); }}>Sign out</button>
+            </div>
+          ) : linkState === "sent" ? (
+            <div>
+              <b>Check your inbox</b> for a sign-in link from Supabase sent to {emailInput.trim()} (check spam too). Click it in this
+              browser and you're signed in; what you've set up here comes with you.
+              <div><button className="linkbtn" onClick={() => setLinkState("idle")}>Use a different email</button></div>
+            </div>
+          ) : (
+            <>
+              <div><b>Keep your profile on every device.</b> Sign in with your email: we send a link, no password.</div>
+              <div className="row" style={{ marginTop: 6 }}>
+                <input type="email" placeholder="you@hbs.edu" value={emailInput} onChange={(e) => setEmailInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && sendLink()} />
+                <button className="btn primary" disabled={linkState === "sending"} onClick={sendLink}>
+                  {linkState === "sending" ? "Sending…" : "Email me a link"}
+                </button>
+              </div>
+              {linkState !== "idle" && linkState !== "sending" && <div className="note" style={{ marginTop: 6 }}>{linkState}</div>}
+              <div className="muted" style={{ marginTop: 4 }}>Without signing in, your profile is saved in this browser only.</div>
+            </>
+          )}
+        </section>
+
         {/* 1. About you */}
         <section>
           <h3 className="sect">1. About you</h3>
