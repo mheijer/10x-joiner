@@ -17,8 +17,9 @@ on:
           - jobs            # pull job listings + posted salaries (free)
           - evaluate        # evaluate the companies named below (paid)
           - calibrate       # compare engine scores with the team's gut scores
+          - report          # print evaluated companies in detail (free; no AI calls)
       companies:
-        description: "For 'evaluate' or 'jobs': comma-separated company names (blank = all for jobs)"
+        description: "For 'evaluate', 'jobs' or 'report': comma-separated company names (blank = all for jobs/report)"
         type: string
         required: false
         default: ""
@@ -83,6 +84,10 @@ jobs:
       - name: Calibrate
         if: inputs.task == 'calibrate'
         run: npx tsx scripts/calibrate.ts
+
+      - name: Report
+        if: inputs.task == 'report'
+        run: npx tsx scripts/report.ts ${{ inputs.companies != '' && format('--only "{0}"', inputs.companies) || '' }}
 
       - name: Save evaluation outputs
         if: always() && (inputs.task == 'test-batch' || inputs.task == 'evaluate')
