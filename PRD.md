@@ -78,7 +78,8 @@ Testers: 10–15 HBS classmates, a 15-minute session each, in Nov 25–Dec 1 wee
 
 ### 7.5 Add a company
 - Input: name + website (optional HQ). Dedupe against the seed list. Show progress; on failure, show partial data rather than nothing.
-- **Limit: 3 added startups per user** (each evaluation costs ~$0.18-0.33). Users can delete one to free a slot. Enforced in the API and the database.
+- **Added startups are shared with everyone** (tagged "Added by a user"), so each is paid for once. Duplicates (same domain or name) return the existing company for free.
+- **Budget guardrails:** at most 10 new companies per rolling 24 hours across the whole site (`DAILY_ADD_CAP`), and 3 per account (API + database trigger). Each evaluation costs ~$0.75 on Opus. No sign-in required to add (team decision).
 
 ## 8. Scoring model (v2)
 Full rationale, course anchors and the worked Sierra example: **[docs/SCORING_FRAMEWORK.md](docs/SCORING_FRAMEWORK.md)**.

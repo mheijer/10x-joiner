@@ -76,6 +76,7 @@ export default function CompanyPanel({
     <div className="detail">
       <button className="close" onClick={onClose} aria-label="Close">✕</button>
       <h2>{c.name}</h2>
+      {!c.is_seed && <div className="small" style={{ margin: "2px 0" }}><span className="badge user">Added by a user</span> <span className="muted">not on the Rocketship List</span></div>}
       <div className="muted small">
         {[c.sector, c.stage, c.hq_city].filter(Boolean).join(" · ")}
         {c.domain && (

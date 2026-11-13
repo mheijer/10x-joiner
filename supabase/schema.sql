@@ -126,19 +126,20 @@ alter table jobs           enable row level security;
 alter table profiles       enable row level security;
 alter table fit_explanations enable row level security;
 
--- Seeded companies are public; user-added companies visible only to creator
+-- Companies users add are shared with everyone (team decision, Nov 2026). The app reads companies on the server with
+-- the service role, so this policy only matters for direct browser queries.
 create policy "companies_read" on companies for select
-  using (is_seed or created_by = auth.uid());
+  using (true);
 create policy "companies_insert_own" on companies for insert
   with check (created_by = auth.uid() and is_seed = false);
 
 -- Child tables readable when the parent company is readable
 create policy "evaluations_read" on evaluations for select
-  using (exists (select 1 from companies c where c.id = company_id and (c.is_seed or c.created_by = auth.uid())));
+  using (true);
 create policy "funding_read" on funding_rounds for select
-  using (exists (select 1 from companies c where c.id = company_id and (c.is_seed or c.created_by = auth.uid())));
+  using (true);
 create policy "jobs_read" on jobs for select
-  using (exists (select 1 from companies c where c.id = company_id and (c.is_seed or c.created_by = auth.uid())));
+  using (true);
 
 create policy "profiles_own" on profiles for all
   using (user_id = auth.uid()) with check (user_id = auth.uid());

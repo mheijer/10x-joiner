@@ -1,17 +1,23 @@
 // POST /api/evaluate  { name, website, hq_location? }
-// Evaluates a user-added company. The company is private to the signed-in (or anonymous) user.
-// Auth: send the user's Supabase access token as "Authorization: Bearer <token>".
+// Adds and evaluates a company a user suggests. Added companies are SHARED: every user sees them (tagged
+// "Added by a user"), so each one is paid for once. Budget guardrails (team decision):
+//   - site-wide cap of DAILY_SITE_CAP new companies per rolling 24 hours (each costs ~$0.75 on Opus)
+//   - 3 per account (also enforced by a database trigger)
+//   - duplicates (same domain or name, on the list or already added) return the existing company for free
+// Auth: the user's Supabase access token as "Authorization: Bearer <token>" (anonymous accounts are fine).
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { evaluateCompany } from "@/lib/evaluate";
 import { normalizeUsLocation, geocodeUs } from "@/lib/geocode";
 import { factsToCompanyUpdate } from "@/lib/facts";
 import { joinerUpside } from "@/lib/scoring";
-import { discoverJobs, countByFunction, boardUrl } from "@/lib/jobs";
+import { discoverJobs, countByFunction, boardUrl, classifyRole } from "@/lib/jobs";
+import { hiringProfile } from "@/lib/hiring";
 import { collectSignals } from "@/lib/signals";
 
 export const maxDuration = 300; // evaluations with web search can take 1-2 minutes
-const MAX_COMPANIES_PER_USER = 3; // each evaluation costs ~$0.18-0.33 (team decision)
+const MAX_COMPANIES_PER_USER = 3;
+const DAILY_SITE_CAP = Number(process.env.DAILY_ADD_CAP ?? 10); // new companies per rolling 24h, across all users
 
 export async function POST(req: Request) {
   const db = supabaseAdmin();
@@ -24,20 +30,25 @@ export async function POST(req: Request) {
   const website = String(body.website ?? "").trim() || null;
   if (!name) return NextResponse.json({ error: "name is required" }, { status: 400 });
 
-  const { count } = await db.from("companies").select("id", { count: "exact", head: true }).eq("created_by", auth.user.id);
-  if ((count ?? 0) >= MAX_COMPANIES_PER_USER)
+  const domain = website?.toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0] || null;
+
+  // Already on the list, or already added by someone? Return it instead of paying to evaluate it again.
+  const { data: byName } = await db.from("companies").select("id").ilike("name", name.replace(/[%_]/g, "")).limit(1);
+  const { data: byDomain } = domain ? await db.from("companies").select("id").eq("domain", domain).limit(1) : { data: [] as any[] };
+  const existing = byDomain?.[0] ?? byName?.[0];
+  if (existing) return NextResponse.json({ company_id: existing.id, existing: true });
+
+  const since = new Date(Date.now() - 24 * 3600_000).toISOString();
+  const { count: today } = await db.from("companies").select("id", { count: "exact", head: true }).eq("is_seed", false).gte("created_at", since);
+  if ((today ?? 0) >= DAILY_SITE_CAP)
     return NextResponse.json(
-      { error: `You can add up to ${MAX_COMPANIES_PER_USER} startups. Remove one to add another.` },
+      { error: `The site has reached today's limit of ${DAILY_SITE_CAP} new companies (each one costs real research money). Try again tomorrow.` },
       { status: 429 },
     );
 
-  const domain = website?.toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0] ?? null;
-
-  // Already on the seed list? Return that instead of re-evaluating.
-  if (domain) {
-    const { data: seeded } = await db.from("companies").select("id").eq("is_seed", true).eq("domain", domain).maybeSingle();
-    if (seeded) return NextResponse.json({ company_id: seeded.id, existing: true });
-  }
+  const { count } = await db.from("companies").select("id", { count: "exact", head: true }).eq("created_by", auth.user.id);
+  if ((count ?? 0) >= MAX_COMPANIES_PER_USER)
+    return NextResponse.json({ error: `You've already added ${MAX_COMPANIES_PER_USER} companies.` }, { status: 429 });
 
   const hq = normalizeUsLocation(body.hq_location);
   const geo = hq ? await geocodeUs(hq).catch(() => null) : null;
@@ -70,10 +81,25 @@ export async function POST(req: Request) {
       model,
       status: "done",
     });
-    await db.from("companies").update(factsToCompanyUpdate(result.facts ?? {}, { hq_city: hq })).eq("id", company.id);
+    await db
+      .from("companies")
+      .update({
+        ...factsToCompanyUpdate(result.facts ?? {}, { hq_city: hq }),
+        ...(hit ? { ats_provider: hit.provider, ats_slug: hit.slug, hiring_profile: hiringProfile(hit.jobs) } : {}),
+      })
+      .eq("id", company.id);
+    if (hit?.jobs.length)
+      await db.from("jobs").insert(hit.jobs.map((j) => ({ company_id: company.id, ...j, job_function: classifyRole(j.title) })));
+    // Geocode from the researched HQ if the user didn't give one
+    const { data: after } = await db.from("companies").select("hq_city,lat").eq("id", company.id).single();
+    if (after?.hq_city && after.lat == null) {
+      const g = await geocodeUs(after.hq_city).catch(() => null);
+      if (g) await db.from("companies").update({ lat: g.lat, lng: g.lng }).eq("id", company.id);
+    }
     return NextResponse.json({ company_id: company.id, composite });
   } catch (e: any) {
-    await db.from("evaluations").insert({ company_id: company.id, scores: {}, status: "error", summary: e.message });
-    return NextResponse.json({ company_id: company.id, error: "Evaluation failed; partial data saved" }, { status: 502 });
+    // Remove the half-made company so it can be retried (and doesn't block the duplicate check).
+    await db.from("companies").delete().eq("id", company.id);
+    return NextResponse.json({ error: `The research step failed (${e.message}). Please try again.` }, { status: 502 });
   }
 }

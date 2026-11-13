@@ -12,6 +12,8 @@ import type { Metric, Personal } from "@/lib/personal";
 import CompanyPanel from "./CompanyPanel";
 import ScatterView from "./ScatterView";
 import ProfileDrawer from "./ProfileDrawer";
+import AddCompany from "./AddCompany";
+import { useRouter } from "next/navigation";
 import { useProfile } from "./useProfile";
 
 const MapView = dynamic(() => import("./MapView"), { ssr: false, loading: () => <div className="empty">Loading map…</div> });
@@ -48,6 +50,10 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
   const [selected, setSelected] = useState<string | null>(null);
   const [lastScoreFilter, setLastScoreFilter] = useState<Metric | null>(null);
   const [showProfile, setShowProfile] = useState(false);
+  const [showAdd, setShowAdd] = useState(false);
+  const [pendingSelect, setPendingSelect] = useState<string | null>(null);
+  const [addNote, setAddNote] = useState<string | null>(null);
+  const router = useRouter();
   const [ai, setAi] = useState<AiResult | null>(null);
   const [aiBusy, setAiBusy] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
@@ -165,6 +171,13 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
   const fitKey = ai ? `ai:${ai.q}` : q.trim().length >= 2 ? `q:${q.trim()}|${filtered.length}` : metro ? `m:${metro}` : "";
 
   const selectedCompany = selected ? companies.find((c) => c.id === selected) ?? null : null;
+  // After adding a company, the page re-reads the list; open the new company once it arrives.
+  useEffect(() => {
+    if (pendingSelect && companies.some((c) => c.id === pendingSelect)) {
+      setSelected(pendingSelect);
+      setPendingSelect(null);
+    }
+  }, [companies, pendingSelect]);
   const evaluatedCount = companies.filter((c) => c.composite != null).length;
   const toggleStage = (b: Bucket) => setStages((s) => (s.includes(b) ? s.filter((x) => x !== b) : [...s, b]));
   const reset = () => {
@@ -308,6 +321,20 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
               />
             )}
             {selectedCompany && <CompanyPanel c={selectedCompany} onClose={() => setSelected(null)} profile={profile} personal={P(selectedCompany)} />}
+            {showAdd && (
+              <AddCompany
+                accessToken={accessToken}
+                onClose={() => setShowAdd(false)}
+                onDone={(id, existing) => {
+                  setShowAdd(false);
+                  setAddNote(existing ? "That company is already on the list, so we opened it for you." : "Added and scored. Everyone can see it now.");
+                  setPendingSelect(id);
+                  reset();
+                  router.refresh();
+                }}
+              />
+            )}
+            {addNote && <div className="toast" onClick={() => setAddNote(null)}>{addNote} ✕</div>}
             {showProfile && (
               <ProfileDrawer profile={profile} update={update} status={status} signedIn={signedIn} accessToken={accessToken} clearAll={clearAll} onClose={() => setShowProfile(false)} email={email} sendSignInLink={sendSignInLink} signOut={signOut} />
             )}
@@ -317,6 +344,7 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
             <div className="listhead">
               <div className="row" style={{ justifyContent: "space-between" }}>
                 <strong>{sorted.length} companies</strong>
+                <button className="linkbtn" onClick={() => setShowAdd(true)}>+ Add a company</button>
                 <select value={sort} onChange={(e) => { sortTouched.current = true; setAiOrder(false); setSort(e.target.value as SortKey); }}>
                   {personalized && <option value="personal">Sort: For you</option>}
                   <option value="composite">Sort: Probability of Winning</option>
@@ -365,7 +393,7 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
                 .filter(([, v]) => v != null);
               return (
                 <div key={c.id} className={`item ${selected === c.id ? "sel" : ""}`} onClick={() => setSelected(c.id)}>
-                  <div className="name">{c.name}</div>
+                  <div className="name">{c.name}{!c.is_seed && <span className="badge user" style={{ marginLeft: 6 }}>Added by a user</span>}</div>
                   <div>
                     {shown != null ? (
                       <span className="pill" style={{ background: scoreColor(shown) }} title={METRIC_LABEL[metric]}>
