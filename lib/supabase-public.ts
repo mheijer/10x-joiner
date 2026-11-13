@@ -14,7 +14,7 @@ export const EXPLORE_COLUMNS = [
   "id", "name", "domain", "description", "sector", "stage", "headcount", "headcount_growth_pct", "founded_year",
   "hq_city", "lat", "lng", "total_funding_usd", "latest_post_money_usd", "post_money_is_estimate", "arr_estimate_usd",
   "work_policy", "customer_type", "business_type", "sponsors_visas", "ltv_phase", "playbook", "facts_as_of",
-  "hiring_profile", "careers_url", "is_seed",
+  "hiring_profile", "careers_url", "is_seed", "created_at",
   "scores", "composite", "joiner_upside", "red_flags", "summary", "eval_status", "evaluated_at",
 ].join(",");
 
@@ -45,6 +45,7 @@ export interface CompanyRow {
   hiring_profile: any | null;
   careers_url: string | null;
   is_seed: boolean;
+  created_at?: string | null;
   scores: Record<string, { score: number; confidence: string; rationale: string; sources: string[] }> | null;
   composite: number | null;
   joiner_upside: number | null;

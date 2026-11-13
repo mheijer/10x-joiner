@@ -2,19 +2,19 @@
 // AI search over the company list: one Haiku call per question (~$0.003). Light per-visitor rate limit to protect
 // the monthly API budget. The company catalog is read from Supabase and cached for 10 minutes.
 import { NextResponse } from "next/server";
-import { supabasePublic } from "@/lib/supabase-public";
+import { supabaseAdmin } from "@/lib/supabase-admin"; // all companies are shared, incl. user-added
 import { aiSearch } from "@/lib/search";
 import type { CatalogRow } from "@/lib/search";
 
 export const maxDuration = 60;
 
-let cache: { at: number; rows: CatalogRow[] } | null = null;
+let cache: { at: number; rows: CatalogRow[] } | null = null; // refreshed every 10 min (new user-added companies show up then)
 const hits = new Map<string, number[]>(); // ip → timestamps (per server instance)
 const LIMIT_PER_HOUR = 30;
 
 async function catalog(): Promise<CatalogRow[]> {
   if (cache && Date.now() - cache.at < 10 * 60_000) return cache.rows;
-  const { data, error } = await supabasePublic()
+  const { data, error } = await supabaseAdmin()
     .from("company_latest")
     .select("id,name,sector,stage,hq_city,headcount,description,composite")
     .limit(2000);
