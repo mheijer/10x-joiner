@@ -11,6 +11,7 @@ import { coverage } from "@/lib/coverage";
 import { usd, num, scoreColor, quadrant, PHASE_LABEL } from "@/lib/display";
 import { activeWeights, effectivePreferences, firstEquityEstimate, isPersonalized } from "@/lib/personal";
 import type { Personal, ProfileState } from "@/lib/personal";
+import EquitySimulator from "./EquitySimulator";
 
 const LOW_GRADE = 2.5; // grades at or below this are highlighted as weak spots
 
@@ -66,6 +67,7 @@ export default function CompanyPanel({
   const go = (r: RefObject<HTMLDivElement | null>) => r.current?.scrollIntoView({ behavior: "smooth", block: "start" });
 
   const [baseInput, setBaseInput] = useState<string>("");
+  const [simOpen, setSimOpen] = useState(false);
   const prefs = effectivePreferences(profile);
   const eq = evaluated ? firstEquityEstimate(c, prefs, baseInput ? Number(baseInput) : null) : null;
 
@@ -83,6 +85,9 @@ export default function CompanyPanel({
           <> · <a href={`https://${c.domain}`} target="_blank" rel="noreferrer">{c.domain}</a></>
         )}
       </div>
+
+      <button className="btn simbtn" onClick={() => setSimOpen(true)}>💰 Equity simulator: what could my stock be worth?</button>
+      {simOpen && <EquitySimulator c={c} prefs={prefs} onClose={() => setSimOpen(false)} />}
 
       {!evaluated ? (
         <p className="note" style={{ marginTop: 12 }}>
@@ -210,7 +215,7 @@ export default function CompanyPanel({
 
           <h4 className="subsect">First equity estimate (illustrative)</h4>
           {!eq ? (
-            <div className="note">No valuation found for {c.name}, so the equity package can't be estimated yet.</div>
+            <div className="note">No valuation found for {c.name}. <button className="linkbtn" onClick={() => setSimOpen(true)}>Enter one in the equity simulator</button>.</div>
           ) : (
             <div className="equity small">
               <div className="row" style={{ flexWrap: "wrap", gap: 6, marginBottom: 6 }}>
@@ -258,6 +263,7 @@ export default function CompanyPanel({
                   {eq.estimate.assumptions.map((a, i) => <li key={i}>{a}</li>)}
                 </ul>
               </details>
+              <button className="btn primary" style={{ marginTop: 8 }} onClick={() => setSimOpen(true)}>Change the assumptions in the equity simulator →</button>
               <div className="muted" style={{ marginTop: 4 }}>
                 Rule-of-thumb grant sizes and stage-based exit odds, not market data or financial advice. Replace with a real offer when you have one.
               </div>
