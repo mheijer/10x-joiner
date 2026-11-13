@@ -71,7 +71,7 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
       setAiBusy(false);
     }
   }
-  const { profile, update, status, signedIn, accessToken, clearAll } = useProfile();
+  const { profile, update, status, signedIn, email, accessToken, clearAll, sendSignInLink, signOut } = useProfile();
   const personalized = isPersonalized(profile);
 
   // Personal scores for every company: plain math in the browser, recomputed when the profile changes.
@@ -185,7 +185,7 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
           {companies.length} companies · {evaluatedCount} evaluated · Rocketship List 2026 (US)
         </div>
         <button className={`btn ${personalized ? "" : "primary"}`} onClick={() => setShowProfile(true)}>
-          {personalized ? "Your profile ✓" : "Personalize: tell us about you"}
+          {email ? `${email.split("@")[0]} · profile` : personalized ? "Your profile ✓" : "Personalize: tell us about you"}
         </button>
       </header>
 
@@ -309,7 +309,7 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
             )}
             {selectedCompany && <CompanyPanel c={selectedCompany} onClose={() => setSelected(null)} profile={profile} personal={P(selectedCompany)} />}
             {showProfile && (
-              <ProfileDrawer profile={profile} update={update} status={status} signedIn={signedIn} accessToken={accessToken} clearAll={clearAll} onClose={() => setShowProfile(false)} />
+              <ProfileDrawer profile={profile} update={update} status={status} signedIn={signedIn} accessToken={accessToken} clearAll={clearAll} onClose={() => setShowProfile(false)} email={email} sendSignInLink={sendSignInLink} signOut={signOut} />
             )}
           </section>
 
