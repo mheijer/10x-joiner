@@ -13,12 +13,13 @@ Read `PRD.md` before building any feature. It defines the user (HBS joiners), th
 - `lib/personal.ts`: client-side personalization (profile state, personal score per company, which metric the list/map shows, first equity estimate). Pure. Team default weights stay the baseline until the user applies their own.
 - `lib/hiring.ts`: hiring profile (roles by function, hiring focus, posted salary bands). Pure.
 - `lib/equity.ts`: pure equity estimator and `estimatePackage` (grant estimate from financials + posted salary). `lib/jobs.ts`: Greenhouse/Lever/Ashby public boards. `lib/geocode.ts`: HQ → lat/lng.
-- `lib/claude.ts`, `lib/evaluate.ts`, `lib/fit.ts`: Claude API calls (server-only). `lib/supabase-admin.ts`: service-role client (server-only).
+- `lib/search.ts`: AI search (server-only): one Haiku call per question over a compact catalog; it only picks from the catalog.
+- `lib/claude.ts`, `lib/evaluate.ts`, `lib/fit.ts`, `lib/search.ts`: Claude API calls (server-only). `lib/supabase-admin.ts`: service-role client (server-only).
 - `scripts/seed.ts`: batch pipeline (`--load`, `--evaluate`, `--jobs`, `--dry-run`).
 
 ## Conventions
 - Relative imports inside `lib/` and `scripts/` use explicit `.ts` extensions (so they run under `tsx`/node). App code may use the `@/` alias.
-- Never import server-only modules (`claude`, `evaluate`, `fit`, `supabase-admin`) into client components.
+- Never import server-only modules (`claude`, `evaluate`, `fit`, `search`, `supabase-admin`) into client components.
 - Every number shown in the UI must show its source or be flagged as an estimate.
 - Data only needs to be directionally correct. Prefer shipping over perfecting sources.
 - Never use the Rocketship List's numbers (headcount, funding): the list is out of date. It only identifies companies.
