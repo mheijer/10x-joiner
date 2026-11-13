@@ -20,6 +20,14 @@ type Bucket = "early" | "mid" | "late";
 type DimFilter = { key: string; min: number };
 type SortKey = "personal" | "composite" | "joiner_upside" | "name" | "funding";
 
+type AiResult = { q: string; understood: string; picks: { id: string; reason: string }[]; filters: Record<string, unknown> };
+
+/** Keyword search: every word must appear somewhere in the name, sector, stage, HQ or description. */
+function textMatch(c: CompanyRow, text: string): boolean {
+  const hay = [c.name, c.sector, c.stage, c.hq_city, c.description].filter(Boolean).join(" ").toLowerCase();
+  return text.split(/[\s,]+/).filter(Boolean).every((w) => hay.includes(w));
+}
+
 const metroOf = (hq: string | null) => (hq ? hq.split(",")[0].trim() : null);
 
 export default function Explore({ companies, loadError }: { companies: CompanyRow[]; loadError: string | null }) {
@@ -40,6 +48,29 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
   const [selected, setSelected] = useState<string | null>(null);
   const [lastScoreFilter, setLastScoreFilter] = useState<Metric | null>(null);
   const [showProfile, setShowProfile] = useState(false);
+  const [ai, setAi] = useState<AiResult | null>(null);
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [aiOrder, setAiOrder] = useState(false); // list in AI best-match order until the user picks a sort
+  const aiRank = useMemo(() => new Map((ai?.picks ?? []).map((p, i) => [p.id, { i, reason: p.reason }])), [ai]);
+
+  async function askAi(question: string) {
+    const qq = question.trim();
+    if (qq.length < 3) return;
+    setAiBusy(true);
+    setAiError(null);
+    try {
+      const res = await fetch("/api/search", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ q: qq }) });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error ?? "AI search failed");
+      setAiOrder(true);
+      setAi({ q: qq, understood: j.understood, picks: j.picks ?? [], filters: j.filters ?? {} });
+    } catch (e: any) {
+      setAiError(e.message);
+    } finally {
+      setAiBusy(false);
+    }
+  }
   const { profile, update, status, signedIn, accessToken, clearAll } = useProfile();
   const personalized = isPersonalized(profile);
 
@@ -73,13 +104,14 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
   const scoreFiltersOn = minWin > 0 || minUp > 0 || dims.length > 0 || hideLowCoverage;
 
   const filtered = useMemo(() => {
-    const text = q.trim().toLowerCase();
+    const text = ai ? "" : q.trim().toLowerCase();
     const lo = sizeMin ? Number(sizeMin) : null;
     const hi = sizeMax ? Number(sizeMax) : null;
     return companies.filter((c) => {
       const evaluated = c.composite != null;
       if ((onlyEvaluated || scoreFiltersOn) && !evaluated) return false;
-      if (text && ![c.name, c.sector, c.description, c.hq_city].some((x) => x?.toLowerCase().includes(text))) return false;
+      if (ai && !aiRank.has(c.id)) return false;
+      if (text && !textMatch(c, text)) return false;
       if (stages.length) {
         if (!c.stage) return false;
         if (!stages.includes(stageBucket(c.stage, c.scores?.pmf?.score ?? null))) return false;
@@ -95,7 +127,7 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
       if (visaOnly && !(c.sponsors_visas === "yes" || c.sponsors_visas === "likely")) return false;
       return true;
     });
-  }, [companies, q, onlyEvaluated, scoreFiltersOn, stages, sizeMin, sizeMax, metro, minWin, minUp, dims, hideLowCoverage, hideFlagged, visaOnly, P, profile.red_flag_mode]);
+  }, [companies, q, onlyEvaluated, scoreFiltersOn, stages, sizeMin, sizeMax, metro, minWin, minUp, dims, hideLowCoverage, hideFlagged, visaOnly, P, profile.red_flag_mode, ai, aiRank]);
 
   const sorted = useMemo(() => {
     const arr = [...filtered];
@@ -105,6 +137,7 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
       : sort === "joiner_upside" ? c.joiner_upside
       : sort === "funding" ? c.total_funding_usd
       : null;
+    if (ai && aiOrder) return arr.sort((a, b) => aiRank.get(a.id)!.i - aiRank.get(b.id)!.i); // best AI match first
     arr.sort((a, b) => {
       if (sort === "name") return a.name.localeCompare(b.name);
       const va = val(a), vb = val(b);
@@ -114,13 +147,28 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
       return vb - va;
     });
     return arr;
-  }, [filtered, sort, P]);
+  }, [filtered, sort, P, ai, aiRank, aiOrder]);
+
+  // How many companies the search alone matches, to explain when other filters hide them all.
+  const searchOnlyCount = useMemo(() => {
+    if (ai) return ai.picks.length;
+    const text = q.trim().toLowerCase();
+    return text ? companies.filter((c) => textMatch(c, text)).length : companies.length;
+  }, [companies, q, ai]);
+  const otherFiltersOn =
+    onlyEvaluated || stages.length > 0 || !!sizeMin || !!sizeMax || !!metro || minWin > 0 || minUp > 0 || dims.length > 0 ||
+    hideLowCoverage || hideFlagged || visaOnly || profile.red_flag_mode === "hide";
+  const clearOtherFilters = () => {
+    setOnlyEvaluated(false); setStages([]); setSizeMin(""); setSizeMax(""); setMetro("");
+    setMinWin(0); setMinUp(0); setLastScoreFilter(null); setDims([]); setHideLowCoverage(false); setHideFlagged(false); setVisaOnly(false);
+  };
+  const fitKey = ai ? `ai:${ai.q}` : q.trim().length >= 2 ? `q:${q.trim()}|${filtered.length}` : metro ? `m:${metro}` : "";
 
   const selectedCompany = selected ? companies.find((c) => c.id === selected) ?? null : null;
   const evaluatedCount = companies.filter((c) => c.composite != null).length;
   const toggleStage = (b: Bucket) => setStages((s) => (s.includes(b) ? s.filter((x) => x !== b) : [...s, b]));
   const reset = () => {
-    setQ(""); setOnlyEvaluated(false); setStages([]); setSizeMin(""); setSizeMax(""); setMetro("");
+    setQ(""); setAi(null); setAiError(null); setOnlyEvaluated(false); setStages([]); setSizeMin(""); setSizeMax(""); setMetro("");
     setMinWin(0); setMinUp(0); setLastScoreFilter(null); setDims([]); setHideLowCoverage(false); setHideFlagged(false); setVisaOnly(false);
   };
 
@@ -155,7 +203,27 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
 
             <div className="fgroup">
               <label className="title">Search</label>
-              <input type="text" placeholder="Company, sector, city…" value={q} onChange={(e) => setQ(e.target.value)} />
+              <input
+                type="text"
+                placeholder="Company, sector, city, or ask a question…"
+                value={q}
+                onChange={(e) => { setQ(e.target.value); if (ai) setAi(null); }}
+                onKeyDown={(e) => { if (e.key === "Enter" && q.trim().split(/\s+/).length >= 3) askAi(q); }}
+              />
+              <div className="row" style={{ marginTop: 6, justifyContent: "space-between" }}>
+                <button className="btn" disabled={aiBusy || q.trim().length < 3} onClick={() => askAi(q)}>
+                  {aiBusy ? "Searching…" : "✨ Ask AI"}
+                </button>
+                <span className="muted small">e.g. "Series B AI healthcare in Boston"</span>
+              </div>
+              {aiError && <div className="note" style={{ marginTop: 6 }}>{aiError}</div>}
+              {ai && (
+                <div className="aibox small">
+                  <b>AI search:</b> {ai.understood || ai.q}
+                  <div className="muted">{ai.picks.length} matches, best first · picked from company descriptions, so check each one</div>
+                  <button className="linkbtn" onClick={() => setAi(null)}>Clear AI search</button>
+                </div>
+              )}
             </div>
 
             <div className="fgroup">
@@ -230,7 +298,7 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
 
           <section className="center">
             {view === "map" ? (
-              <MapView companies={filtered} selectedId={selected} onSelect={setSelected} valueOf={valueOf} metricLabel={METRIC_LABEL[metric]} />
+              <MapView companies={filtered} selectedId={selected} onSelect={setSelected} valueOf={valueOf} metricLabel={METRIC_LABEL[metric]} fitKey={fitKey} />
             ) : (
               <ScatterView
                 companies={filtered}
@@ -249,7 +317,7 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
             <div className="listhead">
               <div className="row" style={{ justifyContent: "space-between" }}>
                 <strong>{sorted.length} companies</strong>
-                <select value={sort} onChange={(e) => { sortTouched.current = true; setSort(e.target.value as SortKey); }}>
+                <select value={sort} onChange={(e) => { sortTouched.current = true; setAiOrder(false); setSort(e.target.value as SortKey); }}>
                   {personalized && <option value="personal">Sort: For you</option>}
                   <option value="composite">Sort: Probability of Winning</option>
                   <option value="joiner_upside">Sort: Joiner Upside</option>
@@ -259,9 +327,32 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
               </div>
               <div className="muted small" style={{ marginTop: 4 }}>
                 Badge shows <b>{METRIC_LABEL[metric]}</b>{metric === "personal" ? " (your weights + fit)" : profile.weights_source !== "default" && metric === "composite" ? " (your weights)" : ""}
+                {ai && aiOrder && " · listed in AI best-match order"}
               </div>
             </div>
-            {sorted.length === 0 && <div className="empty">No companies match these filters.</div>}
+            {sorted.length === 0 && (
+              <div className="empty">
+                {searchOnlyCount > 0 && otherFiltersOn ? (
+                  <>
+                    {searchOnlyCount} {searchOnlyCount === 1 ? "company matches" : "companies match"} {ai ? "the AI search" : `"${q.trim()}"`}, but your other filters hide{" "}
+                    {searchOnlyCount === 1 ? "it" : "them"}{minWin > 0 || minUp > 0 || dims.length > 0 ? " (score filters only show the companies we've evaluated so far)" : ""}.
+                    <div style={{ marginTop: 8 }}><button className="btn" onClick={clearOtherFilters}>Clear the other filters</button></div>
+                  </>
+                ) : ai ? (
+                  "The AI found no good matches. Try rephrasing."
+                ) : q.trim() ? (
+                  <>No companies match "{q.trim()}". Try <button className="linkbtn" onClick={() => askAi(q)}>asking the AI</button> instead.</>
+                ) : (
+                  "No companies match these filters."
+                )}
+              </div>
+            )}
+            {sorted.length > 0 && otherFiltersOn && searchOnlyCount > sorted.length && (q.trim() || ai) && (
+              <div className="hiddenbar small">
+                {searchOnlyCount - sorted.length} more {ai ? "AI matches" : "matches"} hidden by your filters ·{" "}
+                <button className="linkbtn" onClick={clearOtherFilters}>show them</button>
+              </div>
+            )}
             {sorted.slice(0, 300).map((c) => {
               const cov = coverage(c);
               const flags = (c.red_flags ?? []).filter((f) => f.severity !== "low").length;
@@ -291,6 +382,7 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
                     {c.composite != null && <> · <span className={`badge ${cov.level}`}>{cov.level} coverage</span></>}
                     {flags > 0 && <> · <span className="badge flag">{flags} red flag{flags > 1 ? "s" : ""}</span></>}
                   </div>
+                  {aiRank.get(c.id)?.reason && <div className="aireason">✨ {aiRank.get(c.id)!.reason}</div>}
                 </div>
               );
             })}

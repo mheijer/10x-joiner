@@ -1,7 +1,7 @@
 "use client";
 // Map of companies (MapLibre + free OpenFreeMap tiles, no API key). Pins are colored by the metric the list is
 // showing (Probability of Winning, Joiner Upside or For you); gray = not evaluated yet. Nearby pins cluster; click a cluster to zoom in, a pin to open the scorecard.
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import Map, { Source, Layer, NavigationControl } from "react-map-gl/maplibre";
 import type { MapRef, MapLayerMouseEvent } from "react-map-gl/maplibre";
 import "maplibre-gl/dist/maplibre-gl.css";
@@ -16,14 +16,28 @@ export default function MapView({
   onSelect,
   valueOf,
   metricLabel,
+  fitKey,
 }: {
   companies: CompanyRow[];
   selectedId: string | null;
   onSelect: (id: string) => void;
   valueOf: (c: CompanyRow) => number | null;
   metricLabel: string;
+  fitKey?: string; // changes when a search/location filter changes: zoom the map to the results
 }) {
   const ref = useRef<MapRef>(null);
+
+  useEffect(() => {
+    const pts = companies.filter((c) => c.lat != null && c.lng != null);
+    const map = ref.current;
+    if (!map) return;
+    if (!fitKey || pts.length === 0 || pts.length > 150) {
+      if (!fitKey) map.easeTo({ center: [-96, 38.5], zoom: 3.4, duration: 500 });
+      return;
+    }
+    const lngs = pts.map((c) => c.lng!), lats = pts.map((c) => c.lat!);
+    map.fitBounds([[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]], { padding: 80, maxZoom: 10, duration: 600 });
+  }, [fitKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const geojson = useMemo(
     () => ({
