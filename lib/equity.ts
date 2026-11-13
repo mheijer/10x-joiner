@@ -194,7 +194,7 @@ export function stageBucket(stage?: string | null, pmfScore?: number | null): St
 // post-money after projected future rounds, avoids double-counting success: those rounds already assume it.)
 // Early-stage companies fail more often but have more room to run; late-stage companies are the reverse.
 // Expected company-value multiple: early ≈ 2.0x, mid ≈ 2.2x, late ≈ 1.6x. Illustrative defaults; users edit everything.
-const SCENARIO_TABLE: Record<StageBucket, { label: string; multiple: number; probability: number }[]> = {
+export const SCENARIO_TABLE: Record<StageBucket, { label: string; multiple: number; probability: number }[]> = {
   early: [
     { label: "Bust", multiple: 0, probability: 0.55 },
     { label: "Modest", multiple: 1, probability: 0.25 },
@@ -246,7 +246,7 @@ export const GRANT_MULTIPLE_OF_BASE: Record<StageBucket, { low: number; mid: num
 };
 // Common stock (409A) value as a share of the preferred price: sets the option strike.
 // Late-stage companies often grant RSUs instead of options (no exercise cost).
-const COMMON_TO_PREFERRED: Record<StageBucket, number> = { early: 0.3, mid: 0.4, late: 0.6 };
+export const COMMON_TO_PREFERRED: Record<StageBucket, number> = { early: 0.3, mid: 0.4, late: 0.6 };
 
 export interface PackageInputs {
   companyName: string;
