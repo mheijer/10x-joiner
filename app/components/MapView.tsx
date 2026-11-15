@@ -10,6 +10,9 @@ import { scoreColor } from "@/lib/display";
 
 const STYLE = "https://tiles.openfreemap.org/styles/positron";
 
+// Continental US, coast to coast: the map opens fitted to this whatever the window size.
+const US_BOUNDS: [[number, number], [number, number]] = [[-124.8, 24.4], [-66.9, 49.4]];
+
 export default function MapView({
   companies,
   selectedId,
@@ -32,7 +35,7 @@ export default function MapView({
     const map = ref.current;
     if (!map) return;
     if (!fitKey || pts.length === 0 || pts.length > 150) {
-      if (!fitKey) map.easeTo({ center: [-96, 38.5], zoom: 3.4, duration: 500 });
+      if (!fitKey) map.fitBounds(US_BOUNDS, { padding: 24, duration: 500 });
       return;
     }
     const lngs = pts.map((c) => c.lng!), lats = pts.map((c) => c.lat!);
@@ -78,7 +81,7 @@ export default function MapView({
     <div style={{ position: "absolute", inset: 0 }}>
       <Map
         ref={ref}
-        initialViewState={{ longitude: -96, latitude: 38.5, zoom: 3.4 }}
+        initialViewState={{ bounds: US_BOUNDS, fitBoundsOptions: { padding: 24 } }}
         mapStyle={STYLE}
         interactiveLayerIds={["clusters", "points"]}
         onClick={onClick}
