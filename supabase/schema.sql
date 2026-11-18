@@ -34,7 +34,6 @@ create table if not exists companies (
   hiring_profile jsonb,        -- lib/hiring.ts: open roles by function, hiring focus, salary bands (refreshed with jobs)
   list_snapshot jsonb,         -- original Rocketship List values (kept for provenance; list data can be stale)
   careers_url   text,
-  linkedin_slug text,           -- company's LinkedIn page, read from its own website (lib/linkedin.ts)
   ats_provider  text,          -- greenhouse | lever | ashby | null
   ats_slug      text,          -- board token, e.g. "anthropic"
   is_seed       boolean not null default false,

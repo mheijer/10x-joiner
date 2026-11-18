@@ -22,7 +22,7 @@ import type { Personal, ProfileState } from "@/lib/personal";
 import EquitySimulator from "./EquitySimulator";
 import SaveToList from "./SaveToList";
 import type { SavedList } from "@/lib/lists";
-import { alumniSearch, linkedinPageUrl } from "@/lib/linkedin";
+import { alumniSearches } from "@/lib/linkedin";
 
 type Tab = "overview" | "scorecard" | "equity" | "hiring";
 type Dim = (typeof DIMENSIONS)[number];
@@ -561,22 +561,20 @@ export default function CompanyPanel({
 
 /** "Who to reach out to": alumni searches on LinkedIn that the joiner runs themselves (we never scrape LinkedIn). */
 function ReachOut({ c, schools, onOpenProfile }: { c: CompanyRow; schools: string[]; onOpenProfile?: () => void }) {
-  const a = alumniSearch(c, schools);
+  const [harvard, ...own] = alumniSearches(c.name, schools);
   return (
     <div className="reach">
       <h3 className="sect">Who to reach out to</h3>
       <div className="reach-links">
-        <a className="reach-btn" href={a.url} target="_blank" rel="noreferrer">Talk to alumni at {c.name} ↗</a>
+        <a className="reach-btn" href={harvard.url} target="_blank" rel="noreferrer">Talk to Harvard alumni at {c.name} ↗</a>
+        {own.map((s) => (
+          <a key={s.school} className="reach-btn" href={s.url} target="_blank" rel="noreferrer">{s.school} alumni ↗</a>
+        ))}
       </div>
       <div className="muted small">
-        One LinkedIn search for people at {c.name} from: {a.schools.join(", ")}. Opens in a new tab; you need to be signed in to LinkedIn.{" "}
-        {a.exact ? (
-          <>It searches {c.name}'s own LinkedIn page (<a href={linkedinPageUrl(c.linkedin_slug)!} target="_blank" rel="noreferrer">linkedin.com/company/{c.linkedin_slug}</a>, linked from {c.domain ?? "its website"}), so everyone listed works there now.</>
-        ) : (
-          <>We couldn't find {c.name}'s LinkedIn page on its website, so this is a general search: check each person's current company.</>
-        )}
-        {a.schools.length < 2 && (
-          <> Add your other schools{onOpenProfile ? <> in <button className="linkbtn" onClick={onOpenProfile}>your profile</button></> : " in your profile"} (or upload your résumé) to include those alumni too.</>
+        Opens a LinkedIn search for "{c.name} {harvard.school}" (you need to be signed in). It can include former employees, so check each person's current company.
+        {own.length === 0 && (
+          <> Add your other schools{onOpenProfile ? <> in <button className="linkbtn" onClick={onOpenProfile}>your profile</button></> : " in your profile"} (or upload your résumé) to search those alumni too.</>
         )}
       </div>
     </div>
