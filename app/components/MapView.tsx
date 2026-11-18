@@ -42,6 +42,18 @@ export default function MapView({
     map.fitBounds([[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]], { padding: 80, maxZoom: 10, duration: 600 });
   }, [fitKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // When the map's box changes size (a phone switching to the Map tab, a rotated screen), re-fit the default US view
+  // unless a search is zooming it somewhere specific.
+  const fitRef = useRef(fitKey);
+  fitRef.current = fitKey;
+  useEffect(() => {
+    const onResize = () => {
+      if (!fitRef.current) ref.current?.fitBounds(US_BOUNDS, { padding: 24, duration: 0 });
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
   const geojson = useMemo(
     () => ({
       type: "FeatureCollection" as const,
