@@ -280,7 +280,7 @@ async function evaluateDry() {
   console.log(`Dry run: evaluating ${rows.length} companies -> data/eval_samples/`);
   await pool(rows, CONCURRENCY, async (r) => {
     try {
-      const signals = await gatherSignals(r.name, domainOf(r.website));
+      const { signals } = await gatherSignals(r.name, domainOf(r.website), { provider: null, slug: null, sector: r.industry });
       const out = await evaluateCompany(
         {
           name: r.name, website: r.website, description: r.description, industry: r.industry,
