@@ -5,6 +5,7 @@
 //   npm run seed -- --evaluate --all --max-cost 50   # the full list, only when you decide to
 //   npm run seed -- --evaluate --only "Sierra"   # (re-)evaluate one company
 //   npm run seed -- --evaluate --sample --max-cost 80   # the app's 100-company sample (lib/sample.ts), skipping done ones
+//   npm run seed -- --evaluate --sample --batch --max-cost 75   # same, via the Batches API (50% off tokens, slower)
 //   npm run seed -- --evaluate --limit 5 --dry-run   # no database: writes JSON to data/eval_samples/
 //   npm run seed -- --evaluate --calibration --max-cost 10   # FIRST RUN: the 20 calibration companies, saved to Supabase
 //   npm run seed -- --evaluate --dry-run --calibration       # same, files only (no database)
@@ -71,6 +72,12 @@ const EST_COST_PER_COMPANY: Record<string, number> = {
   "claude-haiku-5-5": 0.08,
 };
 const EST = EST_COST_PER_COMPANY[MODEL] ?? 0.8;
+
+/** Concurrency for free work (no budget check). */
+async function freePool<T>(items: T[], n: number, fn: (t: T) => Promise<void>) {
+  let i = 0;
+  await Promise.all(Array.from({ length: Math.min(n, items.length) }, async () => { while (i < items.length) await fn(items[i++]).catch(() => {}); }));
+}
 
 async function pool<T>(items: T[], n: number, fn: (t: T, i: number) => Promise<void>) {
   let i = 0;
@@ -179,6 +186,111 @@ async function saveJobs(db: any, companyId: string, hit: JobHit) {
     .eq("id", companyId);
 }
 
+
+/** Store one evaluation: scores, facts → columns, open roles, funding rounds. Shared by the sync and batch paths. */
+async function saveEvaluation(db: any, c: any, out: Awaited<ReturnType<typeof evaluateCompany>>, signals: Signal[], hit: JobHit) {
+  const { result, composite, model } = out;
+  const f = result.facts ?? {};
+  await db.from("evaluations").insert({
+    company_id: c.id,
+    scores: result.scores,
+    composite,
+    joiner_upside: joinerUpside(result.scores),
+    red_flags: result.red_flags,
+    conflicts: result.conflicts,
+    pmf_evidence: result.pmf_evidence,
+    signals,
+    summary: result.summary,
+    model,
+    status: "done",
+  });
+  // All numbers come from fresh research; list values live only in list_snapshot.
+  await db.from("companies").update(factsToCompanyUpdate(f, c)).eq("id", c.id);
+  // Save the roles found while gathering signals (before: only used as a signal, so the Hiring tab stayed empty).
+  // If none were found, retry with the careers page the research just found.
+  await saveJobs(db, c.id, hit ?? (f.careers_url ? await discoverJobs(c.name, c.domain, null, f.careers_url).catch(() => null) : null));
+  if (f.funding_rounds?.length) {
+    await db.from("funding_rounds").delete().eq("company_id", c.id);
+    await db.from("funding_rounds").insert(
+      f.funding_rounds.map((r) => ({
+        company_id: c.id,
+        round: r.round,
+        announced_on: r.date ? (r.date.length === 7 ? `${r.date}-01` : r.date) : null,
+        amount_usd: r.amount_usd ?? null,
+        post_money_usd: r.post_money_usd ?? null,
+        post_money_is_estimate: !r.post_money_usd,
+        source_url: r.source ?? null,
+      })),
+    );
+  }
+}
+
+
+// ---------------------------------------------------------------- evaluate via the Batches API (50% off tokens)
+// Free signals are gathered first (as in the sync path); then the companies are evaluated in up to two batches
+// ("halves"), so the second half's cost check uses the first half's real cost per company. Hard cap: --max-cost.
+const BATCH_EST = Number(opt("--batch-est") ?? 0.45); // $/company at batch prices (sync ≈ $0.74 measured)
+
+async function evaluateViaBatch(db: any, todo: any[]) {
+  if (!Number.isFinite(MAX_COST)) throw new Error("--batch needs --max-cost (a hard cap in USD)");
+  const { evaluateBatch } = await import("../lib/batch.ts");
+  console.log(`Batch mode: ${todo.length} companies, hard cap $${MAX_COST}, estimate ~$${(todo.length * BATCH_EST).toFixed(2)} at $${BATCH_EST}/company.`);
+  if (todo.length * BATCH_EST > MAX_COST) throw new Error(`Estimated $${(todo.length * BATCH_EST).toFixed(2)} exceeds the $${MAX_COST} cap. Nothing submitted.`);
+
+  // Free part first: job boards and public signals for every company
+  const prepared: { c: any; signals: Signal[]; hit: JobHit }[] = [];
+  await freePool(todo, 5, async (c: any) => {
+    const g = await gatherSignals(c.name, c.domain, { provider: c.ats_provider as AtsProvider | null, slug: c.ats_slug, careersUrl: c.careers_url, sector: c.sector });
+    prepared.push({ c, ...g });
+  });
+  prepared.sort((a, b) => String(a.c.name).localeCompare(String(b.c.name)));
+  console.log(`Signals gathered for ${prepared.length} companies (free). Submitting batches…`);
+
+  const halves = prepared.length > 10 ? [prepared.slice(0, Math.ceil(prepared.length / 2)), prepared.slice(Math.ceil(prepared.length / 2))] : [prepared];
+  let est = BATCH_EST;
+  let ok = 0;
+  const failed: string[] = [];
+  for (const [i, half] of halves.entries()) {
+    const before = usage.costUsd;
+    let outcomes;
+    try {
+      outcomes = await evaluateBatch(
+        half.map((p) => ({
+          id: p.c.id,
+          input: { name: p.c.name, website: p.c.domain, description: p.c.description, industry: p.c.sector, hq_location: p.c.hq_city, founded_year: p.c.founded_year },
+          signals: p.signals,
+        })),
+        { budgetUsd: MAX_COST, estPerCompanyUsd: est },
+      );
+    } catch (e: any) {
+      console.error(`Half ${i + 1}: ${e.message}`);
+      break;
+    }
+    for (const o of outcomes) {
+      const p = half.find((x) => x.c.id === o.id)!;
+      if (!o.ok || !o.out) {
+        failed.push(`${p.c.name} (${o.error})`);
+        continue;
+      }
+      try {
+        fs.mkdirSync("data/eval_samples", { recursive: true });
+        fs.writeFileSync(path.join("data/eval_samples", p.c.name.replace(/[^a-z0-9]+/gi, "_") + ".json"), JSON.stringify(o.out, null, 2));
+        await saveEvaluation(db, p.c, o.out, p.signals, p.hit);
+        evaluatedCount++;
+        ok++;
+        console.log(`  ${p.c.name}: winning ${o.out.composite} | joiner upside ${joinerUpside(o.out.result.scores)}`);
+      } catch (e: any) {
+        failed.push(`${p.c.name} (save failed: ${e.message})`);
+      }
+    }
+    // Re-estimate from what this half really cost, for the next half's cap check
+    const spent = usage.costUsd - before;
+    if (half.length) est = Math.max(BATCH_EST * 0.5, spent / half.length) * 1.1;
+    console.log(`Half ${i + 1} done: $${spent.toFixed(2)} for ${half.length} companies ($${(spent / Math.max(1, half.length)).toFixed(2)} each). Total $${usage.costUsd.toFixed(2)} of $${MAX_COST}.`);
+  }
+  console.log(`Batch evaluation: ${ok} saved, ${failed.length} failed.${failed.length ? "\nFailed: " + failed.join("; ") : ""}`);
+}
+
 // ---------------------------------------------------------------- evaluate
 async function evaluate() {
   if (DRY) return evaluateDry();
@@ -200,6 +312,7 @@ async function evaluate() {
   }
   const todo = data.filter((c: any) => flag("--force") || ONLY || c.eval_status !== "done").slice(0, LIMIT);
   console.log(`Evaluating ${todo.length} companies (concurrency ${CONCURRENCY})...`);
+  if (flag("--batch")) return evaluateViaBatch(db, todo);
 
   let done = 0;
   await pool(todo, CONCURRENCY, async (c: any) => {
@@ -223,39 +336,7 @@ async function evaluate() {
       // Also save a JSON copy so `npm run calibrate` can compare against the team's gut scores
       fs.mkdirSync("data/eval_samples", { recursive: true });
       fs.writeFileSync(path.join("data/eval_samples", c.name.replace(/[^a-z0-9]+/gi, "_") + ".json"), JSON.stringify(out, null, 2));
-      const f = result.facts ?? {};
-      await db.from("evaluations").insert({
-        company_id: c.id,
-        scores: result.scores,
-        composite,
-        joiner_upside: joinerUpside(result.scores),
-        red_flags: result.red_flags,
-        conflicts: result.conflicts,
-        pmf_evidence: result.pmf_evidence,
-        signals,
-        summary: result.summary,
-        model,
-        status: "done",
-      });
-      // All numbers come from fresh research; list values live only in list_snapshot.
-      await db.from("companies").update(factsToCompanyUpdate(f, c)).eq("id", c.id);
-      // Save the roles found while gathering signals (before: only used as a signal, so the Hiring tab stayed empty).
-      // If none were found, retry with the careers page the research just found.
-      await saveJobs(db, c.id, hit ?? (f.careers_url ? await discoverJobs(c.name, c.domain, null, f.careers_url).catch(() => null) : null));
-      if (f.funding_rounds?.length) {
-        await db.from("funding_rounds").delete().eq("company_id", c.id);
-        await db.from("funding_rounds").insert(
-          f.funding_rounds.map((r) => ({
-            company_id: c.id,
-            round: r.round,
-            announced_on: r.date ? (r.date.length === 7 ? `${r.date}-01` : r.date) : null,
-            amount_usd: r.amount_usd ?? null,
-            post_money_usd: r.post_money_usd ?? null,
-            post_money_is_estimate: !r.post_money_usd,
-            source_url: r.source ?? null,
-          })),
-        );
-      }
+      await saveEvaluation(db, c, out, signals, hit);
       evaluatedCount++;
       console.log(`[${++done}/${todo.length}] ${c.name}: ${composite}  (running cost $${usage.costUsd.toFixed(2)})`);
     } catch (e: any) {

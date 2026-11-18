@@ -34,6 +34,11 @@ on:
         type: boolean
         required: false
         default: false
+      batch:
+        description: "Use the Batches API for paid evaluations (50% off tokens; usually under an hour, can take longer)"
+        type: boolean
+        required: false
+        default: false
 
 concurrency:
   group: pipeline # never two pipeline runs at once
@@ -42,7 +47,7 @@ concurrency:
 jobs:
   run:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 300 # batches usually finish in under an hour; GitHub's limit is 6 hours
     env:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
@@ -76,11 +81,11 @@ jobs:
         if: inputs.task == 'evaluate'
         run: |
           if [ -z "${{ inputs.companies }}" ]; then echo "::error::Name the companies to evaluate"; exit 1; fi
-          npx tsx scripts/seed.ts --evaluate --only "${{ inputs.companies }}" --max-cost "${{ inputs.max_cost }}" ${{ inputs.force && '--force' || '' }}
+          npx tsx scripts/seed.ts --evaluate --only "${{ inputs.companies }}" --max-cost "${{ inputs.max_cost }}" ${{ inputs.force && '--force' || '' }} ${{ inputs.batch && '--batch' || '' }}
 
       - name: Evaluate the 100-company sample
         if: inputs.task == 'evaluate-sample'
-        run: npx tsx scripts/seed.ts --evaluate --sample --max-cost "${{ inputs.max_cost }}" ${{ inputs.force && '--force' || '' }}
+        run: npx tsx scripts/seed.ts --evaluate --sample --max-cost "${{ inputs.max_cost }}" ${{ inputs.force && '--force' || '' }} ${{ inputs.batch && '--batch' || '' }}
 
       - name: Pull jobs
         if: inputs.task == 'jobs'

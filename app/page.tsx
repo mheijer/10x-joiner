@@ -1,12 +1,13 @@
 // Home: Explore (map + ranked list) and Scatter. Companies are read on the server. Every company is shared:
 // the Rocketship List plus companies users added (team decision), so the server reads them all with the service
 // role and passes only the explore columns to the browser. No user data is read here.
-// The app shows a representative 100-company sample of the list (lib/sample.ts) plus every user-added company.
+// The app shows a representative 100-company sample of the list (lib/sample.ts) plus every user-added company,
+// minus public companies (lib/scope.ts).
 import Explore from "./components/Explore";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { EXPLORE_COLUMNS } from "@/lib/supabase-public";
 import type { CompanyRow } from "@/lib/supabase-public";
-import { inSample } from "@/lib/sample";
+import { inApp } from "@/lib/scope";
 
 export const dynamic = "force-dynamic"; // always read fresh rows; never at build time
 
@@ -16,7 +17,7 @@ export default async function Home() {
   try {
     const { data, error: e } = await supabaseAdmin().from("company_latest").select(EXPLORE_COLUMNS).limit(2000);
     if (e) throw e;
-    companies = ((data ?? []) as unknown as CompanyRow[]).filter((c) => !c.is_seed || inSample(c.name));
+    companies = ((data ?? []) as unknown as CompanyRow[]).filter(inApp);
   } catch (e: any) {
     error = e?.message ?? String(e);
   }

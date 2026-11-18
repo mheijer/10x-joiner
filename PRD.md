@@ -131,4 +131,4 @@ Full rationale, course anchors and the worked Sierra example: **[docs/SCORING_FR
 - **Scorecard** shows one number per concept: points earned out of its weight. Concept explainers ("What is moat?") hold the course references.
 - **Total comp** (salary + equity per year) is the headline money number; equity levers (grant size or %, valuation) are editable on the panel.
 - **Saved lists**: users flag companies into named lists, stored with their profile (`profiles.lists`, migration 003).
-
+- **Public companies are out of scope** (Nov 17): a joiner there gets public stock, not startup equity. Hidden by researched stage (`lib/scope.ts`), acquired companies too; the sample replaces them like-for-like (Netskope→Postman, Iambic→Syntiant, Kardigan→Hippocratic AI, Cresta→Spectro Cloud, Alkira→Harness, Homeward→Medallion), so it stays at 100.

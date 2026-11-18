@@ -12,6 +12,16 @@ import { readFileSync, writeFileSync } from "node:fs";
 const N = 100;
 const SEED = 2026;
 const KEEP = ["Sierra", "CloudZero", "Mendaera"]; // already evaluated
+// Out of scope after research (Nov 17): public or acquired, so not startups a joiner can join. Each is replaced by a
+// company from the same region × founding era, same sector when possible (seeded, so the result is reproducible).
+const OUT_OF_SCOPE: Record<string, string> = {
+  Netskope: "public (NASDAQ: NTSK)",
+  Iambic: "public (Nasdaq: IAM, Oct 2026)",
+  Kardigan: "public (Nasdaq: KARD, Jun 2026)",
+  Cresta: "acquired",
+  Alkira: "acquired",
+  Homeward: "acquired",
+};
 
 type Row = Record<string, string>;
 
@@ -128,6 +138,20 @@ for (let i = 0; i < 2000; i++) {
   const d = distance(s);
   if (d < bestD) [best, bestD] = [s, d];
 }
+// Replace out-of-scope companies with a like-for-like company not already in the sample
+const replaced: string[] = [];
+const rr = rng(SEED + 1);
+for (const gone of best.filter((r) => r.name in OUT_OF_SCOPE)) {
+  const taken = new Set(best.map((r) => r.name));
+  const candidates = pool
+    .filter((r) => !taken.has(r.name) && !(r.name in OUT_OF_SCOPE) && stratum(r) === stratum(gone))
+    .map((r) => ({ r, k: (sector(r.industry) === sector(gone.industry) ? 0 : 1) + rr() * 0.5 }))
+    .sort((a, b) => a.k - b.k);
+  const pick = candidates[0]?.r;
+  if (!pick) continue;
+  best = best.map((r) => (r === gone ? pick : r));
+  replaced.push(`${gone.name} (${OUT_OF_SCOPE[gone.name]}) → ${pick.name} [${sector(pick.industry)}, ${region(pick.hq_location)}, ${era(pick.founded_year)}]`);
+}
 best.sort((a, b) => a.name.localeCompare(b.name));
 
 const header = Object.keys(rows[0]);
@@ -150,6 +174,7 @@ const report = (label: string, f: (r: Row) => string) => {
     console.log(`  ${k.padEnd(24)} ${(v * 100).toFixed(0).padStart(5)}%  ${((got.get(k) ?? 0) * 100).toFixed(0).padStart(5)}%`);
 };
 console.log(`Sample: ${best.length} of ${pool.length} US companies (seed ${SEED}); kept: ${KEEP.join(", ")}`);
+if (replaced.length) console.log(`Replaced (out of scope):\n  ${replaced.join("\n  ")}`);
 report("Region", (r) => region(r.hq_location));
 report("Founding era (stage proxy)", (r) => era(r.founded_year));
 report("Sector", (r) => sector(r.industry));
