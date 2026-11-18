@@ -42,9 +42,19 @@ export default function ScatterView({
   const y = AXES.find((a) => a.key === yKey) ?? AXES[1];
   const quadrants = xKey === "composite" && yKey === "joiner_upside";
 
+  // Many companies share exact scores (e.g. Joiner Upside 50), so identical points are spread by a tiny, fixed
+  // amount (from the company id) to keep every dot visible. The tooltip always shows the exact scores.
+  const nudge = (id: string, salt: number) => {
+    let h = salt;
+    for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+    return ((h % 1000) / 1000 - 0.5) * 1.6; // within ±0.8 points
+  };
   const points = companies
-    .map((c) => ({ id: c.id, name: c.name, x: x.get(c), y: y.get(c), size: c.total_funding_usd ?? 0, color: scoreColor(colorOf(c)), raised: c.total_funding_usd }))
-    .filter((p) => p.x != null && p.y != null);
+    .map((c) => ({ id: c.id, name: c.name, xr: x.get(c), yr: y.get(c), size: c.total_funding_usd ?? 0, color: scoreColor(colorOf(c)), raised: c.total_funding_usd }))
+    .filter((p) => p.xr != null && p.yr != null)
+    .map((p) => ({ ...p, x: (p.xr as number) + nudge(p.id, 7), y: (p.yr as number) + nudge(p.id, 13) }));
+  // Name only the standouts (highest on both axes); hover any dot for its name and scores.
+  const labeled = new Set([...points].sort((a, b) => (b.xr as number) + (b.yr as number) - ((a.xr as number) + (a.yr as number))).slice(0, 10).map((p) => p.id));
 
   return (
     <div className="scatterwrap">
@@ -60,7 +70,7 @@ export default function ScatterView({
           </select>
         </label>
         <span className="muted small">
-          {points.length} companies plotted · bubble size = total raised · click a bubble for its scorecard
+          {points.length} companies plotted · bubble size = total raised · names on the 10 standouts; hover any dot · click for its scorecard
           {points.length < companies.length && ` · ${companies.length - points.length} without data for these axes`}
         </span>
       </div>
@@ -82,7 +92,7 @@ export default function ScatterView({
               ]}
               <XAxis type="number" dataKey="x" name={x.label} domain={x.domain} label={{ value: x.label, position: "bottom", offset: 10 }} />
               <YAxis type="number" dataKey="y" name={y.label} domain={y.domain} label={{ value: y.label, angle: -90, position: "insideLeft", offset: 0 }} />
-              <ZAxis type="number" dataKey="size" range={[60, 700]} />
+              <ZAxis type="number" dataKey="size" range={[40, 420]} />
               <Tooltip
                 cursor={{ strokeDasharray: "3 3" }}
                 content={({ payload }) => {
@@ -91,16 +101,27 @@ export default function ScatterView({
                   return (
                     <div style={{ background: "#fff", border: "1px solid #e4e3de", borderRadius: 8, padding: "6px 10px", fontSize: 13 }}>
                       <b>{p.name}</b>
-                      <div>{x.label}: {Math.round(p.x * 10) / 10}</div>
-                      <div>{y.label}: {Math.round(p.y * 10) / 10}</div>
+                      <div>{x.label}: {Math.round(p.xr * 10) / 10}</div>
+                      <div>{y.label}: {Math.round(p.yr * 10) / 10}</div>
                       <div className="muted">Raised {usd(p.raised)}</div>
                     </div>
                   );
                 }}
               />
               <Scatter data={points} onClick={(p: any) => onSelect(p.id ?? p.payload?.id)} cursor="pointer">
-                {points.map((p) => <Cell key={p.id} fill={p.color} fillOpacity={0.8} stroke="#fff" />)}
-                <LabelList dataKey="name" position="top" style={{ fontSize: 12, fill: "#1c1c1a" }} />
+                {points.map((p) => <Cell key={p.id} fill={p.color} fillOpacity={0.78} stroke={p.color} strokeOpacity={0.9} strokeWidth={1} />)}
+                <LabelList
+                  dataKey="name"
+                  content={(props: any) => {
+                    const pt = points[props.index];
+                    if (!pt || !labeled.has(pt.id)) return null;
+                    return (
+                      <text x={props.x + (props.width ?? 0) / 2} y={props.y - 4} textAnchor="middle" fontSize={11.5} fontWeight={600} fill="#1c1c1a" stroke="#ffffff" strokeWidth={3} paintOrder="stroke" style={{ pointerEvents: "none" }}>
+                        {pt.name}
+                      </text>
+                    );
+                  }}
+                />
               </Scatter>
             </ScatterChart>
           </ResponsiveContainer>
