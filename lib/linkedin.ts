@@ -1,4 +1,4 @@
-// "Who to reach out to": LinkedIn alumni searches the joiner runs themselves. We never scrape LinkedIn.
+// "Who to reach out to": one LinkedIn alumni search the joiner runs themselves. We never scrape LinkedIn.
 //
 // The exact company comes from the company's own website: its homepage (or careers page) links to its LinkedIn
 // page, e.g. linkedin.com/company/tennr. That page's People tab, filtered by a school keyword, lists only people who
@@ -87,31 +87,35 @@ export function normalizeSchool(s: string): string {
   return t;
 }
 
-export interface AlumniLink {
-  school: string; // what we search for
-  label: string; // button text
+export interface AlumniSearch {
+  schools: string[]; // what the one search covers, for the caption ("Harvard (incl. HBS)", "University of Michigan")
   url: string;
   exact: boolean; // true: the company's own People tab (right company guaranteed)
 }
 
+/** A school term for LinkedIn's Boolean keyword search: multi-word names in straight quotes. */
+const term = (s: string) => (/\s/.test(s) ? `"${s.replace(/"/g, "")}"` : s);
+
 /**
- * The searches to offer: HBS, then all of Harvard, then the user's own schools (from their profile or résumé),
- * each limited to the company. Pure.
+ * ONE search for alumni at the company: all of Harvard (which includes HBS) OR any of the user's own schools
+ * (from their profile or résumé). Any Harvard school folds into "Harvard". Pure.
  */
-export function alumniLinks(company: { name: string; linkedin_slug?: string | null }, userSchools: string[] = []): AlumniLink[] {
-  const schools: string[] = [];
-  for (const s of ["Harvard Business School", "Harvard", ...userSchools.map(normalizeSchool)]) {
-    if (s && !schools.some((x) => x.toLowerCase() === s.toLowerCase())) schools.push(s);
+export function alumniSearch(company: { name: string; linkedin_slug?: string | null }, userSchools: string[] = []): AlumniSearch {
+  const schools: string[] = ["Harvard"];
+  for (const raw of userSchools) {
+    const s = normalizeSchool(raw);
+    if (!s || /harvard/i.test(s) || schools.some((x) => x.toLowerCase() === s.toLowerCase())) continue;
+    schools.push(s);
   }
+  const keywords = schools.map(term).join(" OR ");
   const slug = company.linkedin_slug?.trim();
-  return schools.map((school) => ({
-    school,
-    label: school === "Harvard" ? "All Harvard alumni" : `${school} alumni`,
+  return {
+    schools: schools.map((s) => (s === "Harvard" ? "Harvard (incl. HBS)" : s)),
     url: slug
-      ? `https://www.linkedin.com/company/${encodeURIComponent(slug)}/people/?keywords=${encodeURIComponent(school)}`
-      : `https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(`${school} ${company.name}`)}`,
+      ? `https://www.linkedin.com/company/${encodeURIComponent(slug)}/people/?keywords=${encodeURIComponent(keywords)}`
+      : `https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(`(${keywords}) AND ${term(company.name)}`)}`,
     exact: !!slug,
-  }));
+  };
 }
 
 /** The company's LinkedIn page, if we know it. */
