@@ -15,6 +15,7 @@ on:
           - load            # load the 556 companies + map locations (free)
           - test-batch      # evaluate the 12 test companies on Opus (~$4-7, stops at $10)
           - jobs            # pull job listings + posted salaries (free)
+          - evaluate-sample # evaluate the app's 100-company sample, skipping ones already done (paid, ~$0.75 each, stops at max_cost)
           - evaluate        # evaluate the companies named below (paid)
           - calibrate       # compare engine scores with the team's gut scores
           - report          # print evaluated companies in detail (free; no AI calls)
@@ -58,7 +59,7 @@ jobs:
         run: |
           missing=""
           for v in NEXT_PUBLIC_SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY; do [ -z "${!v}" ] && missing="$missing $v"; done
-          if [ "${{ inputs.task }}" = "test-batch" ] || [ "${{ inputs.task }}" = "evaluate" ]; then
+          if [ "${{ inputs.task }}" = "test-batch" ] || [ "${{ inputs.task }}" = "evaluate" ] || [ "${{ inputs.task }}" = "evaluate-sample" ]; then
             [ -z "$ANTHROPIC_API_KEY" ] && missing="$missing ANTHROPIC_API_KEY"
           fi
           if [ -n "$missing" ]; then echo "::error::Missing repo secrets:$missing"; exit 1; fi
@@ -77,9 +78,13 @@ jobs:
           if [ -z "${{ inputs.companies }}" ]; then echo "::error::Name the companies to evaluate"; exit 1; fi
           npx tsx scripts/seed.ts --evaluate --only "${{ inputs.companies }}" --max-cost "${{ inputs.max_cost }}" ${{ inputs.force && '--force' || '' }}
 
+      - name: Evaluate the 100-company sample
+        if: inputs.task == 'evaluate-sample'
+        run: npx tsx scripts/seed.ts --evaluate --sample --max-cost "${{ inputs.max_cost }}" ${{ inputs.force && '--force' || '' }}
+
       - name: Pull jobs
         if: inputs.task == 'jobs'
-        run: npx tsx scripts/seed.ts --jobs ${{ inputs.companies != '' && format('--only "{0}"', inputs.companies) || '' }}
+        run: npx tsx scripts/seed.ts --jobs --sample ${{ inputs.companies != '' && format('--only "{0}"', inputs.companies) || '' }}
 
       - name: Calibrate
         if: inputs.task == 'calibrate'
@@ -90,7 +95,7 @@ jobs:
         run: npx tsx scripts/report.ts ${{ inputs.companies != '' && format('--only "{0}"', inputs.companies) || '' }}
 
       - name: Save evaluation outputs
-        if: always() && (inputs.task == 'test-batch' || inputs.task == 'evaluate')
+        if: always() && (inputs.task == 'test-batch' || inputs.task == 'evaluate' || inputs.task == 'evaluate-sample')
         uses: actions/upload-artifact@v4
         with:
           name: evaluations-${{ github.run_number }}

@@ -16,7 +16,7 @@
 import type { JobFunction } from "./jobs.ts";
 
 export interface Signal {
-  type: "demand" | "retention" | "usage" | "organic_pull" | "hiring";
+  type: "demand" | "retention" | "usage" | "organic_pull" | "hiring" | "funding" | "regulatory";
   metric: string; // human-readable, e.g. "App Store ratings"
   value: string; // e.g. "4.8★ from 52,000 ratings"
   as_of: string; // YYYY-MM-DD
@@ -153,9 +153,148 @@ export function hiringMixSignal(byFunction: Partial<Record<JobFunction, number>>
 }
 
 /** Collect every signal that applies. Each fetcher fails quietly; missing signals simply aren't reported. */
+// ---------------------------------------------------------------- official records (free, no key)
+// SEC Form D: US startups file one when they sell stock in a round (amount offered and sold, first-sale date).
+// openFDA: device clearances and approvals (510(k), De Novo, PMA): regulatory risk retired for medtech.
+// ClinicalTrials.gov: registered trials and their phase: progress for biotech.
+
+const fetchT = async (url: string, init?: RequestInit, ms = 10000) => {
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), ms);
+  try {
+    return await fetch(url, { ...init, signal: ctl.signal });
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(t);
+  }
+};
+const SEC_UA = () =>
+  `10x-joiner research (HBS class project; github.com/mheijer/10x-joiner)${process.env.SEC_CONTACT_EMAIL ? " " + process.env.SEC_CONTACT_EMAIL : ""}`;
+const norm = (x: string) => x.toLowerCase().replace(/\(cik.*$/i, "").replace(/[^a-z0-9]+/g, " ").replace(/\b(inc|llc|corp|corporation|co|ltd|technologies|labs?)\b/g, "").trim();
+const usdShort = (x: number) => (x >= 1e9 ? `$${(x / 1e9).toFixed(1)}B` : x >= 1e6 ? `$${Math.round(x / 1e6)}M` : `$${Math.round(x / 1e3)}K`);
+const isHealth = (sector?: string | null) => !!sector && /health|bio|med|pharma|clinic|device|surg|diagnos|therap|care/i.test(sector);
+
+/** Matching Form D filings from an EDGAR full-text search response, newest first. Pure. */
+export function parseFormDSearch(json: any, company: string): { cik: string; adsh: string; filed: string; entity: string }[] {
+  const want = norm(company);
+  const out: { cik: string; adsh: string; filed: string; entity: string }[] = [];
+  for (const h of json?.hits?.hits ?? []) {
+    const src = h._source ?? {};
+    const entity = String(src.display_names?.[0] ?? "");
+    if (!want || norm(entity) !== want) continue; // exact entity match only: never another company's filing
+    const adsh = String(src.adsh ?? String(h._id ?? "").split(":")[0]);
+    const cik = String(src.ciks?.[0] ?? "").replace(/^0+/, "");
+    if (adsh && cik) out.push({ cik, adsh, filed: String(src.file_date ?? ""), entity: entity.replace(/\s*\(CIK.*$/i, "").trim() });
+  }
+  return out.sort((a, b) => b.filed.localeCompare(a.filed));
+}
+
+/** Amounts from a Form D primary_doc.xml. Pure. */
+export function parseFormDXml(xml: string): { offered: number | null; sold: number | null; firstSale: string | null } {
+  const num = (tag: string) => {
+    const m = xml.match(new RegExp(`<${tag}>\\s*([0-9.]+)\\s*</${tag}>`, "i"));
+    return m ? Number(m[1]) : null;
+  };
+  const d = xml.match(/<dateOfFirstSale>\s*<value>\s*([0-9-]+)\s*<\/value>/i);
+  return { offered: num("totalOfferingAmount"), sold: num("totalAmountSold"), firstSale: d ? d[1] : null };
+}
+
+export async function secFormDSignal(name: string): Promise<Signal | null> {
+  const q = encodeURIComponent(`"${name}"`);
+  const r = await fetchT(`https://efts.sec.gov/LATEST/search-index?q=${q}&forms=D`, { headers: { "User-Agent": SEC_UA() } });
+  if (!r?.ok) return null;
+  const filings = parseFormDSearch(await r.json().catch(() => null), name).slice(0, 6);
+  if (!filings.length) return null;
+  const rows: string[] = [];
+  const seenSale = new Set<string>();
+  for (const f of filings) {
+    const x = await fetchT(`https://www.sec.gov/Archives/edgar/data/${f.cik}/${f.adsh.replace(/-/g, "")}/primary_doc.xml`, { headers: { "User-Agent": SEC_UA() } });
+    if (!x?.ok) continue;
+    const d = parseFormDXml(await x.text());
+    const key = d.firstSale ?? f.filed;
+    if (seenSale.has(key) || (!d.sold && !d.offered)) continue; // amendments repeat the same offering
+    seenSale.add(key);
+    rows.push(`${key.slice(0, 7)}: ${d.sold ? usdShort(d.sold) + " sold" : "amount undisclosed"}${d.offered ? ` of ${usdShort(d.offered)} offered` : ""}`);
+  }
+  if (!rows.length) return null;
+  return {
+    type: "funding",
+    metric: `SEC Form D filings (${filings[0].entity})`,
+    value: rows.slice(0, 4).join("; ") + ". Official filings: amounts may lag or bundle tranches, and some rounds are filed late or not at all.",
+    as_of: today(),
+    source: `https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=${filings[0].cik}&type=D`,
+  };
+}
+
+/** FDA device decisions for an applicant, from openFDA 510(k) and PMA responses. Pure. */
+export function parseFda(k510: any, pma: any, company: string): { id: string; device: string; date: string; kind: string }[] {
+  const want = norm(company);
+  const ymd = (d: string) => (d && d.length === 8 ? `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6)}` : d);
+  const rows = [
+    ...(k510?.results ?? []).map((x: any) => ({
+      applicant: x.applicant, id: x.k_number, device: x.device_name, date: ymd(String(x.decision_date ?? "")),
+      kind: String(x.k_number ?? "").startsWith("DEN") ? "De Novo" : "510(k)",
+    })),
+    ...(pma?.results ?? []).map((x: any) => ({ applicant: x.applicant, id: x.pma_number, device: x.trade_name ?? x.generic_name, date: ymd(String(x.decision_date ?? "")), kind: "PMA" })),
+  ];
+  return rows
+    .filter((x) => x.id && norm(String(x.applicant ?? "")).startsWith(want))
+    .map(({ applicant, ...rest }) => rest)
+    .sort((a, b) => b.date.localeCompare(a.date));
+}
+
+export async function fdaSignal(name: string): Promise<Signal | null> {
+  const q = encodeURIComponent(`applicant:"${name}"`);
+  const [a, b] = await Promise.all([
+    fetchT(`https://api.fda.gov/device/510k.json?search=${q}&limit=20`),
+    fetchT(`https://api.fda.gov/device/pma.json?search=${q}&limit=20`),
+  ]);
+  const rows = parseFda(a?.ok ? await a.json().catch(() => null) : null, b?.ok ? await b.json().catch(() => null) : null, name);
+  if (!rows.length) return null;
+  return {
+    type: "regulatory",
+    metric: "FDA device clearances/approvals",
+    value: `${rows.length}: ` + rows.slice(0, 4).map((r) => `${r.kind} ${r.id} ${r.device} (${r.date})`).join("; "),
+    as_of: today(),
+    source: `https://www.accessdata.fda.gov/scripts/cdrh/cfdocs/cfpmn/pmn.cfm?applicant=${encodeURIComponent(name)}`,
+  };
+}
+
+/** Trials sponsored by the company, from a ClinicalTrials.gov v2 response. Pure. */
+export function parseTrials(json: any): { total: number; active: number; phases: string[]; latest: string | null } {
+  const studies: any[] = json?.studies ?? [];
+  const status = (s: any) => String(s?.protocolSection?.statusModule?.overallStatus ?? "");
+  const phases = [...new Set(studies.flatMap((s) => s?.protocolSection?.designModule?.phases ?? []))].map(String).sort();
+  const dates = studies.map((s) => String(s?.protocolSection?.statusModule?.startDateStruct?.date ?? "")).filter(Boolean).sort();
+  return {
+    total: Number(json?.totalCount ?? studies.length),
+    active: studies.filter((s) => /RECRUITING|ACTIVE|ENROLLING|NOT_YET/i.test(status(s))).length,
+    phases,
+    latest: dates.at(-1) ?? null,
+  };
+}
+
+export async function clinicalTrialsSignal(name: string): Promise<Signal | null> {
+  const r = await fetchT(
+    `https://clinicaltrials.gov/api/v2/studies?query.spons=${encodeURIComponent(`"${name}"`)}&pageSize=50&countTotal=true`,
+  );
+  if (!r?.ok) return null;
+  const t = parseTrials(await r.json().catch(() => null));
+  if (!t.total) return null;
+  return {
+    type: "regulatory",
+    metric: "Clinical trials sponsored (ClinicalTrials.gov)",
+    value: `${t.total} registered, ${t.active} active${t.phases.length ? `; phases: ${t.phases.join(", ")}` : ""}${t.latest ? `; latest start ${t.latest}` : ""}`,
+    as_of: today(),
+    source: `https://clinicaltrials.gov/search?spons=${encodeURIComponent(name)}`,
+  };
+}
+
 export async function collectSignals(opts: {
   name: string;
   domain?: string | null;
+  sector?: string | null; // health/bio companies also get FDA + clinical-trial checks
   isConsumer?: boolean;
   isDevTool?: boolean;
   jobsByFunction?: Partial<Record<JobFunction, number>>;
@@ -166,6 +305,8 @@ export async function collectSignals(opts: {
   const tasks: Promise<Signal | null>[] = [hackerNewsSignal(opts.name, domain)];
   if (opts.isConsumer !== false) tasks.push(appStoreSignal(opts.name, domain));
   if (opts.isDevTool !== false) tasks.push(githubSignal(slug), npmSignal(slug), pypiSignal(slug));
+  tasks.push(secFormDSignal(opts.name).catch(() => null));
+  if (isHealth(opts.sector)) tasks.push(fdaSignal(opts.name).catch(() => null), clinicalTrialsSignal(opts.name).catch(() => null));
   const found = (await Promise.all(tasks)).filter((s): s is Signal => !!s);
   if (opts.jobsByFunction && opts.jobBoardUrl) {
     const h = hiringMixSignal(opts.jobsByFunction, opts.jobBoardUrl);

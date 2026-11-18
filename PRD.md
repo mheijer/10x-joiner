@@ -120,3 +120,7 @@ Full rationale, course anchors and the worked Sierra example: **[docs/SCORING_FR
 2. How do we treat companies with very little public info? (Proposal: low-confidence badge, still ranked.)
 3. Show the professor's list provenance in the UI ("Source: Rocketship List 2026")? Check with Jeff/Allison.
 4. Budget cap for Claude API on evaluations of all 556 companies (est. $55–280).
+
+## Scope decision (Nov 17)
+- The app launches with **100 companies**: a representative random sample of the 556 US Rocketship List companies (`scripts/sample.ts`, seed 2026). Stratified by region × founding era (a stage proxy; the list has no stage, and its headcount/funding are stale), and chosen among 2,000 draws for the sector mix closest to the full list. Sierra, CloudZero and Mendaera are kept (already evaluated). Matches the full list within ~1-2 points on every dimension.
+- Evaluating the sample: ~97 × $0.75 ≈ $73 on Opus (pipeline task `evaluate-sample`, capped by `max_cost`).

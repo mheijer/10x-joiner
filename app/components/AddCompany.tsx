@@ -81,10 +81,7 @@ export default function AddCompany({
             <button className="btn primary" onClick={submit}>Research and add</button>
           </div>
         )}
-        <div className="muted small" style={{ marginTop: 8 }}>
-          Each new company costs real research money, so the site adds up to 10 new companies a day (3 per person).
-          Companies already on the list come back instantly.
-        </div>
+        <div className="muted small" style={{ marginTop: 8 }}>Takes 1–3 minutes. Companies already in the app open instantly.</div>
       </div>
     </div>
   );

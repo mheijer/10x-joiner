@@ -178,6 +178,18 @@ Plain attributes, gathered during evaluation. **Team rules:**
 
 **What we don't use:** LinkedIn (its terms prohibit scraping), paid databases (PitchBook, Crunchbase Pro, Similarweb), and the Rocketship List's numbers.
 
+### Added Nov 17 (free, official records)
+| Source | What it adds | Feeds |
+|---|---|---|
+| SEC Form D (EDGAR full-text search) | Amounts sold per offering and first-sale dates, filed by the company itself | capital, funding facts (largest-credible-total rule still applies) |
+| openFDA device 510(k) / De Novo / PMA | Clearances and approvals by applicant (health and medtech only) | risk_retirement, moat |
+| ClinicalTrials.gov v2 | Sponsored trials, phases, active count (health and bio only) | risk_retirement |
+| Careers page → job system | Detects Greenhouse, Lever, Ashby, Workable or SmartRecruiters from the company's own careers page, so the Hiring tab fills in | hiring profile, career_velocity |
+
+**Data coverage (confidence badge).** Low-confidence grades and missing key facts lower it. A pre-revenue company's revenue counts as known (it's zero); an undisclosed valuation counts as a partial gap when total funding is known. The badge lists exactly what's missing.
+
+**Not used, and why.** Paid databases (PitchBook, CB Insights, Crunchbase Pro, Sacra, Harmonic) have the best valuation and headcount data, but their licences don't allow automated use in a public app; HBS students can check PitchBook through Baker Library by hand. LinkedIn has no public API.
+
 ## 8. Calibration (PRD hypothesis H3)
 `data/calibration.csv` holds 20 companies chosen to stress-test the rubric. They include a head-to-head pair (Sierra vs. Decagon), two LTV companies (Clay, Blitzy), tough tech (Impulse Space, Nuro), sparse-data companies (Mendaera, Bedrock Robotics) and a data-gap case (Postman). Each teammate fills in gut scores *before* seeing the engine's. `npm run calibrate` reports the Spearman rank correlation (target ≥ 0.5) and the five biggest disagreements. Those disagreements are the best material for "What we learned".
 

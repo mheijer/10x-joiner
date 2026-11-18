@@ -4,6 +4,7 @@
 //   npm run seed -- --evaluate --limit 20        # LTV-evaluate up to 20 companies not yet evaluated (20 is the max without --all)
 //   npm run seed -- --evaluate --all --max-cost 50   # the full list, only when you decide to
 //   npm run seed -- --evaluate --only "Sierra"   # (re-)evaluate one company
+//   npm run seed -- --evaluate --sample --max-cost 80   # the app's 100-company sample (lib/sample.ts), skipping done ones
 //   npm run seed -- --evaluate --limit 5 --dry-run   # no database: writes JSON to data/eval_samples/
 //   npm run seed -- --evaluate --calibration --max-cost 10   # FIRST RUN: the 20 calibration companies, saved to Supabase
 //   npm run seed -- --evaluate --dry-run --calibration       # same, files only (no database)
@@ -35,7 +36,9 @@ const args = process.argv.slice(2);
 const flag = (f: string) => args.includes(f);
 const opt = (f: string) => (args.includes(f) ? args[args.indexOf(f) + 1] : undefined);
 // Safety: evaluations cost money, so a run is capped at 20 companies unless --all is passed explicitly.
-const LIMIT = flag("--all") ? Infinity : Math.min(Number(opt("--limit") ?? 20), 20);
+// --sample: only the app's 100-company sample (lib/sample.ts); bounded, so up to 100 per run (still capped by --max-cost)
+const SAMPLE = flag("--sample");
+const LIMIT = flag("--all") ? Infinity : SAMPLE ? Math.min(Number(opt("--limit") ?? 100), 100) : Math.min(Number(opt("--limit") ?? 20), 20);
 const ONLY = opt("--only"); // one name, or a comma-separated list: --only "Sierra,Decagon,Blitzy"
 const ONLY_SET = ONLY ? new Set(ONLY.split(",").map((n) => n.trim().toLowerCase()).filter(Boolean)) : null;
 const CONCURRENCY = Number(opt("--concurrency") ?? 2);
@@ -147,14 +150,33 @@ async function load() {
 }
 
 // ---------------------------------------------------------------- measured signals (non-funding evidence)
-async function gatherSignals(name: string, domain?: string | null): Promise<Signal[]> {
-  const hit = await discoverJobs(name, domain).catch(() => null);
-  return collectSignals({
+type JobHit = Awaited<ReturnType<typeof discoverJobs>>;
+
+async function gatherSignals(
+  name: string,
+  domain?: string | null,
+  hint?: { provider: AtsProvider | null; slug: string | null; careersUrl?: string | null; sector?: string | null },
+): Promise<{ signals: Signal[]; hit: JobHit }> {
+  const hit = await discoverJobs(name, domain, hint, hint?.careersUrl).catch(() => null);
+  const signals = await collectSignals({
     name,
     domain,
+    sector: hint?.sector,
     jobsByFunction: hit ? countByFunction(hit.jobs) : undefined,
     jobBoardUrl: hit ? boardUrl(hit.provider, hit.slug) : undefined,
   }).catch(() => []);
+  return { signals, hit };
+}
+
+/** Save a company's open roles and hiring profile (shown in the app's Hiring tab). */
+async function saveJobs(db: any, companyId: string, hit: JobHit) {
+  if (!hit) return;
+  await db.from("jobs").delete().eq("company_id", companyId);
+  await db.from("jobs").insert(hit.jobs.map((j) => ({ company_id: companyId, ...j, job_function: classifyRole(j.title) })));
+  await db
+    .from("companies")
+    .update({ ats_provider: hit.provider, ats_slug: hit.slug, hiring_profile: hiringProfile(hit.jobs) })
+    .eq("id", companyId);
 }
 
 // ---------------------------------------------------------------- evaluate
@@ -167,6 +189,10 @@ async function evaluate() {
   const { data: rows0, error } = await q;
   if (error) throw error;
   let data = (rows0 ?? []).filter((c: any) => !ONLY_SET || ONLY_SET.has(String(c.name).toLowerCase()));
+  if (SAMPLE) {
+    const { inSample } = await import("../lib/sample.ts");
+    data = data.filter((c: any) => inSample(String(c.name)));
+  }
   if (flag("--calibration")) {
     const cal: { name: string }[] = parse(fs.readFileSync("data/calibration.csv", "utf8"), { columns: true });
     const names = new Set(cal.map((c) => c.name.toLowerCase()));
@@ -186,7 +212,12 @@ async function evaluate() {
       founded_year: c.founded_year,
     };
     try {
-      const signals = await gatherSignals(c.name, c.domain);
+      const { signals, hit } = await gatherSignals(c.name, c.domain, {
+        provider: c.ats_provider as AtsProvider | null,
+        slug: c.ats_slug,
+        careersUrl: c.careers_url,
+        sector: c.sector,
+      });
       const out = await evaluateCompany(input, signals);
       const { result, composite, model } = out;
       // Also save a JSON copy so `npm run calibrate` can compare against the team's gut scores
@@ -208,6 +239,9 @@ async function evaluate() {
       });
       // All numbers come from fresh research; list values live only in list_snapshot.
       await db.from("companies").update(factsToCompanyUpdate(f, c)).eq("id", c.id);
+      // Save the roles found while gathering signals (before: only used as a signal, so the Hiring tab stayed empty).
+      // If none were found, retry with the careers page the research just found.
+      await saveJobs(db, c.id, hit ?? (f.careers_url ? await discoverJobs(c.name, c.domain, null, f.careers_url).catch(() => null) : null));
       if (f.funding_rounds?.length) {
         await db.from("funding_rounds").delete().eq("company_id", c.id);
         await db.from("funding_rounds").insert(
@@ -246,7 +280,7 @@ async function evaluateDry() {
   console.log(`Dry run: evaluating ${rows.length} companies -> data/eval_samples/`);
   await pool(rows, CONCURRENCY, async (r) => {
     try {
-      const signals = await gatherSignals(r.name, domainOf(r.website));
+      const { signals } = await gatherSignals(r.name, domainOf(r.website), { provider: null, slug: null, sector: r.industry });
       const out = await evaluateCompany(
         {
           name: r.name, website: r.website, description: r.description, industry: r.industry,
@@ -268,20 +302,21 @@ async function evaluateDry() {
 async function jobs() {
   const { supabaseAdmin } = await import("../lib/supabase-admin.ts");
   const db = supabaseAdmin();
-  const { data } = await db.from("companies").select("id,name,domain,ats_provider,ats_slug").eq("is_seed", true);
-  const list = (data ?? []).filter((c: any) => !ONLY_SET || ONLY_SET.has(String(c.name).toLowerCase())).slice(0, flag("--limit") ? LIMIT : Infinity); // job boards are free: no 20-company cap
+  const { data } = await db.from("companies").select("id,name,domain,ats_provider,ats_slug,careers_url").eq("is_seed", true);
+  const { inSample } = await import("../lib/sample.ts");
+  const list = (data ?? [])
+    .filter((c: any) => !SAMPLE || inSample(String(c.name)))
+    .filter((c: any) => !ONLY_SET || ONLY_SET.has(String(c.name).toLowerCase()))
+    .slice(0, flag("--limit") ? LIMIT : Infinity); // job boards are free: no 20-company cap
   let found = 0;
+  const missing: string[] = [];
   await pool(list, 5, async (c: any) => {
-    const hit = await discoverJobs(c.name, c.domain, { provider: c.ats_provider as AtsProvider | null, slug: c.ats_slug });
-    if (!hit) return;
+    const hit = await discoverJobs(c.name, c.domain, { provider: c.ats_provider as AtsProvider | null, slug: c.ats_slug }, c.careers_url);
+    if (!hit) return void missing.push(c.name);
     found++;
-    await db.from("jobs").delete().eq("company_id", c.id);
-    await db.from("jobs").insert(hit.jobs.map((j) => ({ company_id: c.id, ...j, job_function: classifyRole(j.title) })));
-    await db
-      .from("companies")
-      .update({ ats_provider: hit.provider, ats_slug: hit.slug, hiring_profile: hiringProfile(hit.jobs) })
-      .eq("id", c.id);
+    await saveJobs(db, c.id, hit);
   });
+  if (missing.length) console.log(`No readable job board: ${missing.sort().join(", ")}`);
   console.log(`Jobs: found boards for ${found}/${list.length} companies.`);
 }
 

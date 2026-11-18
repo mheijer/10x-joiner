@@ -298,7 +298,7 @@ export interface Facts {
   playbook?: "network" | "marketplace" | "sales_led_saas" | "plg_saas" | "api_platform" | "b2c_paid" | "hardware" | "services_as_software" | "other" | null;
   liquidity_events?: { type: "tender_offer" | "secondary" | "acquisition_offer" | "ipo_filing"; date?: string | null; detail: string; source?: string | null }[];
   careers_url?: string | null;
-  ats?: { provider: "greenhouse" | "lever" | "ashby" | null; slug: string | null } | null;
+  ats?: { provider: "greenhouse" | "lever" | "ashby" | "workable" | "smartrecruiters" | null; slug: string | null } | null;
 }
 
 export type Confidence = "low" | "medium" | "high";
@@ -364,6 +364,10 @@ Confidence means "how sure am I of this score", not "how much data exists":
   over time, so the larger number usually reflects more recent rounds. Note the smaller figures in "conflicts".
   (Exception: exclude debt facilities and grants if a source clearly labels them as such.)
 - Research every number yourself and note the date of your freshest source (as_of).
+- Official records in the measured signals outrank aggregators: SEC Form D filings confirm amounts raised and dates
+  (still apply the largest-credible-total rule; a filing can lag or split a round), FDA clearances/approvals and
+  registered clinical trials are evidence for "risk_retirement" (technical/regulatory risk) and "moat" in health and
+  medtech. A pre-revenue company's revenue is KNOWN to be zero: set arr_estimate_usd to 0 rather than leaving it null.
 
 Funding is supporting evidence for product-market fit, never the only evidence (team rule):
 - Funding shows what investors believe; PMF is what customers do. Investors can be wrong (the "TechCrunch false
@@ -449,7 +453,7 @@ When you have finished researching, call the submit_evaluation tool. Its input m
     "ltv_phase": "cvp_fit|gtm_fit|bm_fit|scaling", "ltv_phase_evidence": "one line: what it has proven and what it's working on now",
     "playbook": "network|marketplace|sales_led_saas|plg_saas|api_platform|b2c_paid|hardware|services_as_software|other",
     "liquidity_events": [{"type": "tender_offer|secondary|acquisition_offer|ipo_filing", "date": "YYYY-MM", "detail": "...", "source": "url"}],
-    "careers_url": "url"|null, "ats": {"provider": "greenhouse|lever|ashby"|null, "slug": "string"|null}
+    "careers_url": "url"|null, "ats": {"provider": "greenhouse|lever|ashby|workable|smartrecruiters"|null, "slug": "string"|null}
   },
   "scores": {
     ${DIMENSIONS.map(scoreLine).join(",\n    ")}

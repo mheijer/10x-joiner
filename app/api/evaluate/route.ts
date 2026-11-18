@@ -13,6 +13,7 @@ import { factsToCompanyUpdate } from "@/lib/facts";
 import { joinerUpside } from "@/lib/scoring";
 import { discoverJobs, countByFunction, boardUrl, classifyRole } from "@/lib/jobs";
 import { hiringProfile } from "@/lib/hiring";
+import { inSample } from "@/lib/sample";
 import { collectSignals } from "@/lib/signals";
 
 export const maxDuration = 300; // evaluations with web search can take 1-2 minutes
@@ -32,10 +33,13 @@ export async function POST(req: Request) {
 
   const domain = website?.toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0] || null;
 
-  // Already on the list, or already added by someone? Return it instead of paying to evaluate it again.
-  const { data: byName } = await db.from("companies").select("id").ilike("name", name.replace(/[%_]/g, "")).limit(1);
-  const { data: byDomain } = domain ? await db.from("companies").select("id").eq("domain", domain).limit(1) : { data: [] as any[] };
-  const existing = byDomain?.[0] ?? byName?.[0];
+  // Already in the app (one of the 100 sampled list companies, or added by someone)? Return it instead of paying to
+  // evaluate it again. A list company outside the sample is hidden, so adding it creates a visible user-added copy
+  // (the usual caps apply).
+  const visible = (c: { is_seed: boolean; name: string }) => !c.is_seed || inSample(c.name);
+  const { data: byName } = await db.from("companies").select("id,name,is_seed").ilike("name", name.replace(/[%_]/g, ""));
+  const { data: byDomain } = domain ? await db.from("companies").select("id,name,is_seed").eq("domain", domain) : { data: [] as any[] };
+  const existing = [...(byDomain ?? []), ...(byName ?? [])].find(visible);
   if (existing) return NextResponse.json({ company_id: existing.id, existing: true });
 
   const since = new Date(Date.now() - 24 * 3600_000).toISOString();
@@ -88,8 +92,12 @@ export async function POST(req: Request) {
         ...(hit ? { ats_provider: hit.provider, ats_slug: hit.slug, hiring_profile: hiringProfile(hit.jobs) } : {}),
       })
       .eq("id", company.id);
-    if (hit?.jobs.length)
-      await db.from("jobs").insert(hit.jobs.map((j) => ({ company_id: company.id, ...j, job_function: classifyRole(j.title) })));
+    // No board found by guessing? Try the careers page the research just found.
+    const board = hit ?? (result.facts?.careers_url ? await discoverJobs(name, domain, null, result.facts.careers_url).catch(() => null) : null);
+    if (board && !hit)
+      await db.from("companies").update({ ats_provider: board.provider, ats_slug: board.slug, hiring_profile: hiringProfile(board.jobs) }).eq("id", company.id);
+    if (board?.jobs.length)
+      await db.from("jobs").insert(board.jobs.map((j) => ({ company_id: company.id, ...j, job_function: classifyRole(j.title) })));
     // Geocode from the researched HQ if the user didn't give one
     const { data: after } = await db.from("companies").select("hq_city,lat").eq("id", company.id).single();
     if (after?.hq_city && after.lat == null) {
