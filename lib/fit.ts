@@ -49,6 +49,7 @@ const PROFILE_TOOL = {
           needs_visa_sponsorship: { type: ["boolean", "null"] },
           sectors: { type: "array", items: { type: "string" } },
           interests: { type: "array", items: { type: "string" }, description: "Short keywords, e.g. healthcare, AI agents, fintech" },
+          schools: { type: "array", items: { type: "string" }, description: "Schools they attended, full official names as on the résumé, e.g. Harvard Business School, University of Michigan. Only schools actually listed." },
           customer_types: { type: "array", items: { type: "string", enum: ["enterprise", "mid_market", "smb", "consumer", "government"] } },
           min_base_salary_usd: { type: ["number", "null"] },
         },

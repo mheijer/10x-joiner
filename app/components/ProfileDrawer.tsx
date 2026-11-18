@@ -222,6 +222,9 @@ export default function ProfileDrawer({
           <label className="title small">Interests (comma-separated keywords) {inferredNote("interests")}</label>
           <ListInput value={eff.interests ?? []} onChange={(v) => setPref({ interests: v })} placeholder="healthcare, AI agents, fintech" />
 
+          <label className="title small">Schools (for LinkedIn alumni searches) {inferredNote("schools")}</label>
+          <ListInput value={eff.schools ?? []} onChange={(v) => setPref({ schools: v })} placeholder="Harvard Business School, University of Michigan" />
+
           <div className="row" style={{ marginTop: 8, gap: 12 }}>
             <label className="small" style={{ flex: 1 }}>
               <span className="title">Headcount min</span>

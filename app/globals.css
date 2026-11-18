@@ -261,6 +261,12 @@ a { color: var(--accent); }
 
 /* ================================================================ phones (≤760px) — desktop is untouched */
 .m-only, .mnav { display: none; }
+/* Who to reach out to: LinkedIn alumni searches (hiring tab) */
+.reach { margin-top: 14px; border-top: 1px solid var(--border); padding-top: 4px; }
+.reach-links { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.reach-btn { display: inline-block; border: 1px solid var(--border); border-radius: 999px; padding: 5px 11px; font-size: 13px; color: var(--accent); text-decoration: none; background: var(--panel); }
+.reach-btn:hover { border-color: var(--accent); }
+
 @media (max-width: 760px) {
   .d-only { display: none !important; }
   .m-only { display: inline; }
