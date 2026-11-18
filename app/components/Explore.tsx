@@ -224,12 +224,10 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
                 onChange={(e) => { setQ(e.target.value); if (ai) setAi(null); }}
                 onKeyDown={(e) => { if (e.key === "Enter" && q.trim().split(/\s+/).length >= 3) askAi(q); }}
               />
-              <div className="row" style={{ marginTop: 6, justifyContent: "space-between" }}>
-                <button className="btn" disabled={aiBusy || q.trim().length < 3} onClick={() => askAi(q)}>
-                  {aiBusy ? "Searching…" : "✨ Ask AI"}
-                </button>
-                <span className="muted small">e.g. "Series B AI healthcare in Boston"</span>
-              </div>
+              <button className="btn aibtn" disabled={aiBusy || q.trim().length < 3} onClick={() => askAi(q)}>
+                {aiBusy ? "Searching…" : "✨ Ask AI"}
+              </button>
+              <div className="muted small" style={{ marginTop: 4 }}>Try: "Series B AI healthcare in Boston"</div>
               {aiError && <div className="note" style={{ marginTop: 6 }}>{aiError}</div>}
               {ai && (
                 <div className="aibox small">
@@ -360,11 +358,17 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
             </div>
             {sorted.length === 0 && (
               <div className="empty">
-                {searchOnlyCount > 0 && otherFiltersOn ? (
+                {searchOnlyCount > 0 && otherFiltersOn && (ai || q.trim()) ? (
                   <>
                     {searchOnlyCount} {searchOnlyCount === 1 ? "company matches" : "companies match"} {ai ? "the AI search" : `"${q.trim()}"`}, but your other filters hide{" "}
-                    {searchOnlyCount === 1 ? "it" : "them"}{minWin > 0 || minUp > 0 || dims.length > 0 ? " (score filters only show the companies we've evaluated so far)" : ""}.
+                    {searchOnlyCount === 1 ? "it" : "them"}{minWin > 0 || minUp > 0 || dims.length > 0 ? " (score filters only show the companies we've scored so far)" : ""}.
                     <div style={{ marginTop: 8 }}><button className="btn" onClick={clearOtherFilters}>Clear the other filters</button></div>
+                  </>
+                ) : otherFiltersOn && !q.trim() && !ai ? (
+                  <>
+                    No companies match these filters
+                    {minWin > 0 || minUp > 0 || dims.length > 0 ? ": score filters (Winning, Joiner Upside, LTV dimensions) only include companies we've scored so far" : ""}.
+                    <div style={{ marginTop: 8 }}><button className="btn" onClick={clearOtherFilters}>Clear filters</button></div>
                   </>
                 ) : ai ? (
                   "The AI found no good matches. Try rephrasing."

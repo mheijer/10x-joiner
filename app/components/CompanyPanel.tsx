@@ -6,7 +6,7 @@
 //   Equity    — the first estimate (edit base salary) and the simulator for everything else
 //   Hiring    — open roles by function, posted pay, careers page
 // Every number shows its source or is marked an estimate.
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type { CompanyRow } from "@/lib/supabase-public";
 import { DIMENSIONS, DEFAULT_WEIGHTS, JOINER_DIMENSIONS } from "@/lib/rubric";
@@ -75,35 +75,49 @@ function Meter({ q, sub, score, onMore, more }: { q: string; sub: string; score:
   );
 }
 
-function Highlights({ title, items, tone }: { title: string; items: Highlight[]; tone: "good" | "bad" }) {
+/** Short on purpose: the check's name and a grade word. Click one to read the reasoning in the Scorecard. */
+function Highlights({ title, items, tone, onOpen }: { title: string; items: Highlight[]; tone: "good" | "bad"; onOpen: (key: string) => void }) {
   if (!items.length) return null;
   return (
     <div className={`hl ${tone}`}>
       <div className="hlt">{title}</div>
       {items.map((h) => (
-        <div key={h.key} className="hli">
-          <b>{label(h.key)}</b> <span className="muted">· {gradeWord(h.grade)} ({h.grade}/5{h.confidence === "low" ? ", low confidence" : ""})</span>
-          <div className="small">{h.line}</div>
-        </div>
+        <button key={h.key} className="hli" onClick={() => onOpen(h.key)} title={`${h.line} (click for the full reasoning)`}>
+          <span>{shortLabel(h.key)}</span>
+          <span className="hlg">{gradeWord(h.grade)} ›</span>
+        </button>
       ))}
     </div>
   );
 }
 
+/** Dimension name without its parenthetical, e.g. "PMF, job-to-be-done & customer love (HUNCH)" → "PMF". */
+const shortLabel = (key: string) => label(key).split(/[,(&]/)[0].trim();
+
 /** A graded check: name, grade as pips + word, points earned of its weight, rationale and sources. */
-function CheckRow({ d, s, points, weight, extra }: { d: Dim; s: Grade; points: number; weight: number; extra?: ReactNode }) {
-  const low = s.score <= LOW_GRADE;
+function CheckRow({ d, s, points, weight, extra, open }: { d: Dim; s: Grade; points: number; weight: number; extra?: ReactNode; open?: boolean }) {
+  const low = s.score < LOW_GRADE; // Weak or Poor: matches the grade word
+  const ref = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    // Opened from a strength/watch-out on the Overview: unfold it and bring it into view, once.
+    if (open && ref.current) {
+      ref.current.open = true;
+      ref.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [open]);
   return (
-    <details className={`check ${low ? "lowgrade" : ""}`}>
+    <details ref={ref} className={`check ${low ? "lowgrade" : ""} ${open ? "flash" : ""}`}>
       <summary>
         <span className="checkname" title={d.question}>{d.label}</span>
         <span className="grade">
           <span className="pips" aria-label={`${s.score} of 5`}>
-            {[1, 2, 3, 4, 5].map((i) => (
-              <i key={i} style={i <= Math.round(s.score) ? { background: scoreColor(((s.score - 1) / 4) * 100) } : undefined} />
-            ))}
+            {[1, 2, 3, 4, 5].map((i) => {
+              const fill = Math.max(0, Math.min(1, s.score - (i - 1))); // half pips for x.5 grades
+              const c = scoreColor(((s.score - 1) / 4) * 100);
+              return <i key={i} style={fill ? { background: fill >= 1 ? c : `linear-gradient(90deg, ${c} 50%, #e7e5df 50%)` } : undefined} />;
+            })}
           </span>
-          <span className="checkword">{gradeWord(s.score)}{s.confidence === "low" ? "*" : ""}</span>
+          <span className="checkword">{s.score}/5 {gradeWord(s.score)}{s.confidence === "low" ? "*" : ""}</span>
         </span>
         <span className="checkpts"><b>{points.toFixed(1)}</b> of {weight % 1 ? weight.toFixed(1) : weight}</span>
       </summary>
@@ -133,6 +147,11 @@ export default function CompanyPanel({
   personal: Personal | null;
 }) {
   const [tab, setTab] = useState<Tab>("overview");
+  const [openCheck, setOpenCheck] = useState<string | null>(null);
+  const showCheck = (key: string) => {
+    setOpenCheck(key);
+    setTab("scorecard");
+  };
   const cov = coverage(c);
   const winning = personal?.winning ?? c.composite;
   const quad = quadrant(winning, c.joiner_upside);
@@ -242,8 +261,8 @@ export default function CompanyPanel({
               )}
 
               <div className="hlgrid">
-                <Highlights title="Strengths" items={hl.strengths} tone="good" />
-                <Highlights title="Watch-outs" items={hl.watchouts} tone="bad" />
+                <Highlights title="Strengths" items={hl.strengths} tone="good" onOpen={showCheck} />
+                <Highlights title="Watch-outs" items={hl.watchouts} tone="bad" onOpen={showCheck} />
               </div>
 
               {flags.length > 0 && (
@@ -290,6 +309,11 @@ export default function CompanyPanel({
               </div>
               <div className="small">
                 <span className={`badge ${cov.level}`}>{cov.level} confidence</span> <span className="muted">{COVERAGE_TEXT[cov.level]}</span>
+                {cov.reasons.length > 0 && (
+                  <ul className="covreasons muted">
+                    {cov.reasons.map((r) => <li key={r}>{r}</li>)}
+                  </ul>
+                )}
               </div>
               <div className="muted small" style={{ marginTop: 4 }}>
                 Researched {c.facts_as_of ?? (c.evaluated_at ?? "").slice(0, 10)} · a snapshot, not live data
@@ -308,8 +332,9 @@ export default function CompanyPanel({
             <>
               <div className="howto small">
                 <b>How to read this.</b> Each check is graded 1–5 from public evidence. A 5 earns the check's full
-                points, a 3 earns half, a 1 earns none; the points add up to the score. Weak grades are highlighted;
-                * = low confidence (pulled toward 3). Tap a check for the reasoning and sources.
+                points, a 3 earns half, a 1 earns none; the points add up to the score. Grades we're less sure of are
+                pulled toward 3 before scoring (a bit for medium confidence, more for low, marked *), so a "4 Good" can
+                earn a little less than three quarters. Weak grades are highlighted. Tap a check for the reasoning and sources.
               </div>
 
               <h3 className="sect">Will it win? {Math.round(winning!)} / 100 <span className="muted small">({band(winning)})</span></h3>
@@ -328,6 +353,7 @@ export default function CompanyPanel({
                     d={d}
                     s={s}
                     points={x.points}
+                    open={openCheck === x.key}
                     weight={Math.round(x.weight * 10) / 10}
                     extra={customWeights && Math.abs(def - x.weight) >= 0.5 ? <> · team default weight {def}</> : null}
                   />
@@ -343,7 +369,7 @@ export default function CompanyPanel({
                 const s = c.scores?.[d.key];
                 const x = jcontrib.find((j) => j.key === d.key);
                 if (!s || !x) return null;
-                return <CheckRow key={d.key} d={d} s={s} points={x.points} weight={Math.round(x.weight)} />;
+                return <CheckRow key={d.key} d={d} s={s} points={x.points} weight={Math.round(x.weight)} open={openCheck === d.key} />;
               })}
             </>
           )}
@@ -382,9 +408,12 @@ export default function CompanyPanel({
               <div className="muted" style={{ marginTop: 6 }}>From the company's public job board, at the time of research.</div>
             </div>
           ) : (
-            <div className="note">No public job board found for {c.name}.</div>
+            <div className="note">
+              We couldn't read {c.name}'s open roles automatically. We can read job boards hosted on Greenhouse, Lever,
+              Ashby, Workable or SmartRecruiters; {c.name} {c.careers_url ? "lists its roles on its own careers page (below)" : "doesn't link to one we found"}.
+            </div>
           )}
-          {c.careers_url && <p className="small"><a href={c.careers_url} target="_blank" rel="noreferrer">Careers page →</a></p>}
+          {c.careers_url && <p className="small"><a href={c.careers_url} target="_blank" rel="noreferrer">See all roles on {c.name}'s careers page →</a></p>}
 
           {personalized && personal && (
             <>
