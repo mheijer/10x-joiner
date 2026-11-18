@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin"; // all companies are shared, incl. user-added
 import { aiSearch } from "@/lib/search";
 import type { CatalogRow } from "@/lib/search";
+import { inSample } from "@/lib/sample";
 
 export const maxDuration = 60;
 
@@ -16,10 +17,12 @@ async function catalog(): Promise<CatalogRow[]> {
   if (cache && Date.now() - cache.at < 10 * 60_000) return cache.rows;
   const { data, error } = await supabaseAdmin()
     .from("company_latest")
-    .select("id,name,sector,stage,hq_city,headcount,description,composite")
+    .select("id,name,sector,stage,hq_city,headcount,description,composite,is_seed")
     .limit(2000);
   if (error) throw new Error(error.message);
-  const rows = (data ?? []).map((c: any) => ({ ...c, evaluated: c.composite != null })) as CatalogRow[];
+  const rows = (data ?? [])
+    .filter((c: any) => !c.is_seed || inSample(c.name)) // same companies the app shows
+    .map((c: any) => ({ ...c, evaluated: c.composite != null })) as CatalogRow[];
   cache = { at: Date.now(), rows };
   return rows;
 }

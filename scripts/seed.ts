@@ -4,6 +4,7 @@
 //   npm run seed -- --evaluate --limit 20        # LTV-evaluate up to 20 companies not yet evaluated (20 is the max without --all)
 //   npm run seed -- --evaluate --all --max-cost 50   # the full list, only when you decide to
 //   npm run seed -- --evaluate --only "Sierra"   # (re-)evaluate one company
+//   npm run seed -- --evaluate --sample --max-cost 80   # the app's 100-company sample (lib/sample.ts), skipping done ones
 //   npm run seed -- --evaluate --limit 5 --dry-run   # no database: writes JSON to data/eval_samples/
 //   npm run seed -- --evaluate --calibration --max-cost 10   # FIRST RUN: the 20 calibration companies, saved to Supabase
 //   npm run seed -- --evaluate --dry-run --calibration       # same, files only (no database)
@@ -35,7 +36,9 @@ const args = process.argv.slice(2);
 const flag = (f: string) => args.includes(f);
 const opt = (f: string) => (args.includes(f) ? args[args.indexOf(f) + 1] : undefined);
 // Safety: evaluations cost money, so a run is capped at 20 companies unless --all is passed explicitly.
-const LIMIT = flag("--all") ? Infinity : Math.min(Number(opt("--limit") ?? 20), 20);
+// --sample: only the app's 100-company sample (lib/sample.ts); bounded, so up to 100 per run (still capped by --max-cost)
+const SAMPLE = flag("--sample");
+const LIMIT = flag("--all") ? Infinity : SAMPLE ? Math.min(Number(opt("--limit") ?? 100), 100) : Math.min(Number(opt("--limit") ?? 20), 20);
 const ONLY = opt("--only"); // one name, or a comma-separated list: --only "Sierra,Decagon,Blitzy"
 const ONLY_SET = ONLY ? new Set(ONLY.split(",").map((n) => n.trim().toLowerCase()).filter(Boolean)) : null;
 const CONCURRENCY = Number(opt("--concurrency") ?? 2);
@@ -167,6 +170,10 @@ async function evaluate() {
   const { data: rows0, error } = await q;
   if (error) throw error;
   let data = (rows0 ?? []).filter((c: any) => !ONLY_SET || ONLY_SET.has(String(c.name).toLowerCase()));
+  if (SAMPLE) {
+    const { inSample } = await import("../lib/sample.ts");
+    data = data.filter((c: any) => inSample(String(c.name)));
+  }
   if (flag("--calibration")) {
     const cal: { name: string }[] = parse(fs.readFileSync("data/calibration.csv", "utf8"), { columns: true });
     const names = new Set(cal.map((c) => c.name.toLowerCase()));
@@ -269,7 +276,10 @@ async function jobs() {
   const { supabaseAdmin } = await import("../lib/supabase-admin.ts");
   const db = supabaseAdmin();
   const { data } = await db.from("companies").select("id,name,domain,ats_provider,ats_slug").eq("is_seed", true);
-  const list = (data ?? []).filter((c: any) => !ONLY_SET || ONLY_SET.has(String(c.name).toLowerCase())).slice(0, flag("--limit") ? LIMIT : Infinity); // job boards are free: no 20-company cap
+  const { inSample } = await import("../lib/sample.ts");
+  const list = (data ?? [])
+    .filter((c: any) => !SAMPLE || inSample(String(c.name)))
+    .filter((c: any) => !ONLY_SET || ONLY_SET.has(String(c.name).toLowerCase())).slice(0, flag("--limit") ? LIMIT : Infinity); // job boards are free: no 20-company cap
   let found = 0;
   await pool(list, 5, async (c: any) => {
     const hit = await discoverJobs(c.name, c.domain, { provider: c.ats_provider as AtsProvider | null, slug: c.ats_slug });
