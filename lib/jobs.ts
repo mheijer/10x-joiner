@@ -4,7 +4,23 @@
 //   Lever:      https://api.lever.co/v0/postings/{slug}?mode=json                      (salaryRange field, else text)
 //   Ashby:      https://api.ashbyhq.com/posting-api/job-board/{slug}?includeCompensation=true (structured pay)
 
-export type AtsProvider = "greenhouse" | "lever" | "ashby";
+export type AtsProvider = "greenhouse" | "lever" | "ashby" | "workable" | "smartrecruiters";
+// Workable:        https://apply.workable.com/api/v1/widget/accounts/{slug}
+// SmartRecruiters: https://api.smartrecruiters.com/v1/companies/{slug}/postings
+// The last two are only tried when the company's careers page links to them (see atsFromHtml), not by guessing.
+
+/** fetch with a timeout, so one slow site can't stall a whole batch. */
+async function get(url: string, ms = 8000, init?: RequestInit): Promise<Response | null> {
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), ms);
+  try {
+    return await fetch(url, { ...init, signal: ctl.signal, redirect: "follow" });
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(t);
+  }
+}
 
 export interface Job {
   title: string;
@@ -46,8 +62,8 @@ export async function fetchJobs(provider: AtsProvider, slug: string): Promise<Jo
   try {
     if (provider === "greenhouse") {
       // content=true includes the posting body, where pay ranges usually appear
-      const r = await fetch(`https://boards-api.greenhouse.io/v1/boards/${slug}/jobs?content=true`);
-      if (!r.ok) return null;
+      const r = await get(`https://boards-api.greenhouse.io/v1/boards/${slug}/jobs?content=true`, 15000);
+      if (!r?.ok) return null;
       const j = await r.json();
       return (j.jobs ?? []).map((x: any) => {
         const body = x.content ? String(x.content) : null;
@@ -64,8 +80,8 @@ export async function fetchJobs(provider: AtsProvider, slug: string): Promise<Jo
       });
     }
     if (provider === "lever") {
-      const r = await fetch(`https://api.lever.co/v0/postings/${slug}?mode=json`);
-      if (!r.ok) return null;
+      const r = await get(`https://api.lever.co/v0/postings/${slug}?mode=json`, 15000);
+      if (!r?.ok) return null;
       const j = await r.json();
       if (!Array.isArray(j)) return null;
       return j.map((x: any) => {
@@ -88,8 +104,8 @@ export async function fetchJobs(provider: AtsProvider, slug: string): Promise<Jo
     }
     if (provider === "ashby") {
       // includeCompensation=true returns structured pay: Salary / EquityPercentage / Bonus components
-      const r = await fetch(`https://api.ashbyhq.com/posting-api/job-board/${slug}?includeCompensation=true`);
-      if (!r.ok) return null;
+      const r = await get(`https://api.ashbyhq.com/posting-api/job-board/${slug}?includeCompensation=true`, 15000);
+      if (!r?.ok) return null;
       const j = await r.json();
       return (j.jobs ?? []).map((x: any) => {
         const comp = x.compensation;
@@ -114,10 +130,78 @@ export async function fetchJobs(provider: AtsProvider, slug: string): Promise<Jo
         };
       });
     }
+    if (provider === "workable") {
+      const r = await get(`https://apply.workable.com/api/v1/widget/accounts/${slug}`);
+      if (!r?.ok) return null;
+      const j = await r.json();
+      return (j.jobs ?? []).map((x: any) => ({
+        title: x.title,
+        department: x.department ?? null,
+        location: [x.city, x.state].filter(Boolean).join(", ") || x.country || null,
+        url: x.url ?? x.application_url ?? `https://apply.workable.com/${slug}/`,
+        source: provider,
+        ...NO_PAY,
+        offers_equity: null,
+      }));
+    }
+    if (provider === "smartrecruiters") {
+      const r = await get(`https://api.smartrecruiters.com/v1/companies/${slug}/postings?limit=100`);
+      if (!r?.ok) return null;
+      const j = await r.json();
+      return (j.content ?? []).map((x: any) => ({
+        title: x.name,
+        department: x.department?.label ?? x.function?.label ?? null,
+        location: [x.location?.city, x.location?.region].filter(Boolean).join(", ") || null,
+        url: `https://jobs.smartrecruiters.com/${slug}/${x.id}`,
+        source: provider,
+        ...NO_PAY,
+        offers_equity: null,
+      }));
+    }
   } catch {
     return null;
   }
   return null;
+}
+
+/**
+ * Which job system a careers page uses, from the links and embeds in its HTML. Pure.
+ * e.g. "https://job-boards.greenhouse.io/sierra" → { provider: "greenhouse", slug: "sierra" }.
+ */
+export function atsFromHtml(html: string): { provider: AtsProvider; slug: string }[] {
+  const out: { provider: AtsProvider; slug: string }[] = [];
+  const add = (provider: AtsProvider, slug?: string) => {
+    const s = (slug ?? "").toLowerCase();
+    if (s && !/^(embed|api|v1|jobs|js|static|assets|widget|boards|careers|apply|www)$/.test(s) && !out.some((o) => o.provider === provider && o.slug === s))
+      out.push({ provider, slug: s });
+  };
+  const rx: [AtsProvider, RegExp][] = [
+    ["greenhouse", /(?:boards|job-boards)(?:\.eu)?\.greenhouse\.io\/(?:embed\/job_board(?:\/js)?\?for=)?([a-z0-9_-]+)/gi],
+    ["greenhouse", /greenhouse\.io\/embed\/job_board(?:\/js)?\?for=([a-z0-9_-]+)/gi],
+    ["greenhouse", /boards-api\.greenhouse\.io\/v1\/boards\/([a-z0-9_-]+)/gi],
+    ["lever", /jobs\.(?:eu\.)?lever\.co\/([a-z0-9_-]+)/gi],
+    ["ashby", /jobs\.ashbyhq\.com\/([a-z0-9_.-]+)/gi],
+    ["ashby", /ashbyhq\.com\/posting-api\/job-board\/([a-z0-9_.-]+)/gi],
+    ["workable", /apply\.workable\.com\/([a-z0-9_-]+)/gi],
+    ["workable", /([a-z0-9-]+)\.workable\.com/gi],
+    ["smartrecruiters", /(?:jobs|careers)\.smartrecruiters\.com\/([a-z0-9_-]+)/gi],
+  ];
+  for (const [p, r] of rx) for (const m of html.matchAll(r)) add(p, m[1]);
+  return out;
+}
+
+/** Find job-system links on the company's careers page (or its usual careers URLs). */
+export async function atsFromCareersPage(careersUrl?: string | null, domain?: string | null): Promise<{ provider: AtsProvider; slug: string }[]> {
+  const urls = [careersUrl, domain && `https://${domain}/careers`, domain && `https://${domain}/jobs`].filter(Boolean) as string[];
+  for (const u of [...new Set(urls)]) {
+    const r = await get(u, 8000, { headers: { "User-Agent": "Mozilla/5.0 (10x-joiner research; HBS class project)" } });
+    if (!r?.ok) continue;
+    const found = atsFromHtml(await r.text().catch(() => ""));
+    // A careers URL that redirects straight to the job board counts too
+    found.push(...atsFromHtml(r.url).filter((f) => !found.some((g) => g.provider === f.provider && g.slug === f.slug)));
+    if (found.length) return found;
+  }
+  return [];
 }
 
 /** Public URL of a company's job board. */
@@ -126,6 +210,8 @@ export function boardUrl(provider: AtsProvider, slug: string): string {
     greenhouse: `https://job-boards.greenhouse.io/${slug}`,
     lever: `https://jobs.lever.co/${slug}`,
     ashby: `https://jobs.ashbyhq.com/${slug}`,
+    workable: `https://apply.workable.com/${slug}/`,
+    smartrecruiters: `https://jobs.smartrecruiters.com/${slug}`,
   }[provider];
 }
 
@@ -178,20 +264,25 @@ export function slugCandidates(name: string, domain?: string | null): string[] {
 }
 
 /**
- * Find a company's job board. Uses the evaluation's hint first (provider + slug),
- * then tries every provider × slug candidate. Returns the first board with jobs.
+ * Find a company's job board: the saved hint first, then whatever the company's careers page links to, then
+ * guesses (Greenhouse, Lever, Ashby × name/domain slugs). Returns the first board with jobs.
  */
 export async function discoverJobs(
   name: string,
   domain?: string | null,
   hint?: { provider: AtsProvider | null; slug: string | null } | null,
+  careersUrl?: string | null,
 ): Promise<{ provider: AtsProvider; slug: string; jobs: Job[] } | null> {
   const tries: [AtsProvider, string][] = [];
   if (hint?.provider && hint.slug) tries.push([hint.provider, hint.slug]);
+  for (const f of await atsFromCareersPage(careersUrl, domain).catch(() => [])) tries.push([f.provider, f.slug]);
   for (const slug of slugCandidates(name, domain))
     for (const p of ["ashby", "greenhouse", "lever"] as AtsProvider[]) tries.push([p, slug]);
 
+  const seen = new Set<string>();
   for (const [p, s] of tries) {
+    if (seen.has(`${p}/${s}`)) continue;
+    seen.add(`${p}/${s}`);
     const jobs = await fetchJobs(p, s);
     if (jobs && jobs.length > 0) return { provider: p, slug: s, jobs };
   }

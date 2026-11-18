@@ -92,8 +92,12 @@ export async function POST(req: Request) {
         ...(hit ? { ats_provider: hit.provider, ats_slug: hit.slug, hiring_profile: hiringProfile(hit.jobs) } : {}),
       })
       .eq("id", company.id);
-    if (hit?.jobs.length)
-      await db.from("jobs").insert(hit.jobs.map((j) => ({ company_id: company.id, ...j, job_function: classifyRole(j.title) })));
+    // No board found by guessing? Try the careers page the research just found.
+    const board = hit ?? (result.facts?.careers_url ? await discoverJobs(name, domain, null, result.facts.careers_url).catch(() => null) : null);
+    if (board && !hit)
+      await db.from("companies").update({ ats_provider: board.provider, ats_slug: board.slug, hiring_profile: hiringProfile(board.jobs) }).eq("id", company.id);
+    if (board?.jobs.length)
+      await db.from("jobs").insert(board.jobs.map((j) => ({ company_id: company.id, ...j, job_function: classifyRole(j.title) })));
     // Geocode from the researched HQ if the user didn't give one
     const { data: after } = await db.from("companies").select("hq_city,lat").eq("id", company.id).single();
     if (after?.hq_city && after.lat == null) {
