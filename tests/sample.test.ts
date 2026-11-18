@@ -24,3 +24,14 @@ assert.equal(inApp({ name: "Sierra", is_seed: true, stage: "Public" }), false, "
 assert.equal(inApp({ name: "Not In Sample Co", is_seed: true, stage: "Series B" }), false);
 assert.equal(inApp({ name: "Anything", is_seed: false, stage: "Series A" }), true, "user-added companies show");
 console.log("SCOPE OK");
+
+// Late-stage additions show in the app and are evaluated with the sample
+import { FEATURED_NAMES } from "../lib/featured.ts";
+import { inAppList } from "../lib/scope.ts";
+assert.equal(FEATURED_NAMES.length, 15);
+for (const n of FEATURED_NAMES) {
+  assert.ok(list.includes(n), `${n} is on the Rocketship List`);
+  assert.ok(!inSample(n), `${n} is not already in the sample`);
+  assert.ok(inAppList(n) && inApp({ name: n, is_seed: true, stage: "Series D+" }));
+}
+console.log("FEATURED OK");
