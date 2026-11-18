@@ -85,7 +85,7 @@ Testers: 10–15 HBS classmates, a 15-minute session each, in Nov 25–Dec 1 wee
 Full rationale, course anchors and the worked Sierra example: **[docs/SCORING_FRAMEWORK.md](docs/SCORING_FRAMEWORK.md)**.
 
 - **Probability of Winning (0-100), "Is this a great company?":** 12 dimensions scored 1-5 with confidence: Market & expansion path 10, PMF & customer love (HUNCH) 15, Growth momentum 10, Moat 10, Competitive position 10, Business model & unit economics 8, GTM fit & ICP focus 7, Gatekeeper independence 5, Key risks retired 5, Capital strategy & efficiency 5, Team & velocity 10, AI positioning 5. Low-confidence scores are pulled toward the midpoint.
-- **Joiner Upside (0-100), "Is joining it now a great deal for me?":** valuation headroom + career velocity. Quadrants: Pursue / Blue chip / Lottery ticket / Pass.
+- **Joiner Upside (0-100), "Is joining it now a great deal for me?":** valuation headroom + career velocity. Quadrants: Pursue / Safe bet / Lottery ticket / Pass.
 - **Red flags (LTV Module 5), the joiner's call:** always shown with sources; never silently applied. Users choose show only (default), penalize, or hide.
 - **Personal score** (what the list is ranked by) = `blend × Winning (with the user's weights) + (1 − blend) × profile fit` (− red-flag penalty only if opted in), blend 0.5 by default.
 - **Profile fit (0-100) is plain math, not an AI call** (`lib/fitmath.ts`): open roles in your function 30, stage 15, size 10, interests/sectors 15, location 15, posted pay vs your minimum 10, headcount momentum 5. Every point shows its reason. Free across all companies.

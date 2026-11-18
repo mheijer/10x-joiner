@@ -334,7 +334,7 @@ export default function ProfileDrawer({
             (profile.lists ?? []).map((l) => (
               <div key={l.id} className="row small" style={{ gap: 6, marginBottom: 4 }}>
                 <input type="text" defaultValue={l.name} onBlur={(e) => update((p) => ({ ...p, lists: renameList(p.lists ?? [], l.id, e.target.value) }))} />
-                <span className="muted" style={{ whiteSpace: "nowrap" }}>{l.company_ids.length} companies</span>
+                <span className="muted" style={{ whiteSpace: "nowrap" }}>{l.company_ids.length} {l.company_ids.length === 1 ? "company" : "companies"}</span>
                 <button className="linkbtn" onClick={() => { if (confirm(`Delete the list "${l.name}"?`)) update((p) => ({ ...p, lists: deleteList(p.lists ?? [], l.id) })); }}>Delete</button>
               </div>
             ))

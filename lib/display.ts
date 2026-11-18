@@ -24,7 +24,7 @@ export function quadrant(winning: number | null | undefined, upside: number | nu
   const hiW = winning >= 60;
   const hiU = upside >= 60;
   if (hiW && hiU) return "Pursue";
-  if (hiW && !hiU) return "Blue chip";
+  if (hiW && !hiU) return "Safe bet";
   if (!hiW && hiU) return "Lottery ticket";
   return "Pass";
 }
@@ -64,8 +64,8 @@ export const QUADRANT_INFO: Record<string, { headline: string; detail: string; c
     detail: "Likely to win, and still a good deal to join today.",
     color: "#15803d",
   },
-  "Blue chip": {
-    headline: "Blue chip",
+  "Safe bet": {
+    headline: "Safe bet",
     detail: "Likely to win, but much of the upside is already priced in.",
     color: "#2563eb",
   },

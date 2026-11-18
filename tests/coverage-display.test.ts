@@ -22,7 +22,7 @@ assert.equal(coverage({ scores: all("low") }).level, "low");
 assert.equal(quadrant(85.9, 71.3), "Pursue");
 assert.equal(quadrant(55.8, 44.7), "Pass");
 assert.equal(quadrant(48.8, 65), "Lottery ticket");
-assert.equal(quadrant(80, 40), "Blue chip");
+assert.equal(quadrant(80, 40), "Safe bet");
 assert.equal(usd(15.8e9), "$16B"); assert.equal(usd(1.585e9), "$1.6B"); assert.equal(usd(119e6), "$119M");
 assert.equal(scoreColor(null), "#9ca3af");
 console.log("coverage/display OK");
