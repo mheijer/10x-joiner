@@ -3,7 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 
 export const MODEL = process.env.ANTHROPIC_MODEL || "claude-opus-5-5"; // team decision: Opus for quality
 // Web search server tool. If Anthropic ships a newer version string, set WEB_SEARCH_TOOL_TYPE.
-const WEB_SEARCH_TYPE = process.env.WEB_SEARCH_TOOL_TYPE || "web_search_20250305";
+export const WEB_SEARCH_TYPE = process.env.WEB_SEARCH_TOOL_TYPE || "web_search_20250305";
 
 // ---------------------------------------------------------------- cost meter
 // USD per million tokens (standard tier) and per web search, from platform.claude.com/docs/en/about-claude/pricing
