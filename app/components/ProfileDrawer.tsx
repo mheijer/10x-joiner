@@ -7,6 +7,7 @@ import { DEFAULT_WEIGHTS, WINNING_DIMENSIONS } from "@/lib/rubric";
 import { normalizeWeights, WEIGHT_PRESETS } from "@/lib/scoring";
 import type { Weights } from "@/lib/scoring";
 import { effectivePreferences } from "@/lib/personal";
+import { deleteList, renameList } from "@/lib/lists";
 import type { ProfileState, RedFlagMode } from "@/lib/personal";
 import type { Preferences } from "@/lib/filters";
 import type { SyncStatus } from "./useProfile";
@@ -295,8 +296,21 @@ export default function ProfileDrawer({
         {/* 4. Ranking */}
         <section>
           <h3 className="sect">4. Your ranking</h3>
-          <label className="title small">For you = company quality vs. fit to you: {Math.round(profile.blend * 100)}% / {Math.round((1 - profile.blend) * 100)}%</label>
-          <input className="range" type="range" min={0} max={100} step={5} value={Math.round(profile.blend * 100)} onChange={(e) => update({ blend: Number(e.target.value) / 100 })} />
+          <p className="muted small">
+            Your <b>For you</b> score mixes two things. <b>Company score</b> is the same for everyone: the average of
+            "Will it win?" and "Is joining now a good deal?". <b>Fit to you</b> is personal: how well the company matches
+            the roles, stage, size, location and pay you set above.
+          </p>
+          <label className="title small">How much should your ranking weigh the company vs. your fit?</label>
+          <div className="blendrow small">
+            <span>Company score <b>{Math.round(profile.blend * 100)}%</b></span>
+            <input className="range" type="range" min={0} max={100} step={5} value={Math.round(profile.blend * 100)} onChange={(e) => update({ blend: Number(e.target.value) / 100 })} />
+            <span>Fit to you <b>{Math.round((1 - profile.blend) * 100)}%</b></span>
+          </div>
+          <p className="muted small">
+            This changes only your For you scores (and so the list order when sorted by For you, and the map colors when
+            showing For you). It never changes "Will it win?" or "Is joining now a good deal?".
+          </p>
           <label className="title small" style={{ marginTop: 8 }}>Red flags (your call)</label>
           <div className="chips">
             {(
@@ -311,8 +325,24 @@ export default function ProfileDrawer({
           </div>
         </section>
 
+        {/* 5. Saved lists */}
         <section>
-          <button className="linkbtn" onClick={() => { if (confirm("Clear your profile, preferences and weights?")) clearAll(); }}>
+          <h3 className="sect">5. Your lists</h3>
+          {(profile.lists ?? []).length === 0 ? (
+            <p className="muted small">No lists yet. Open a company and click "☆ Save to a list".</p>
+          ) : (
+            (profile.lists ?? []).map((l) => (
+              <div key={l.id} className="row small" style={{ gap: 6, marginBottom: 4 }}>
+                <input type="text" defaultValue={l.name} onBlur={(e) => update((p) => ({ ...p, lists: renameList(p.lists ?? [], l.id, e.target.value) }))} />
+                <span className="muted" style={{ whiteSpace: "nowrap" }}>{l.company_ids.length} companies</span>
+                <button className="linkbtn" onClick={() => { if (confirm(`Delete the list "${l.name}"?`)) update((p) => ({ ...p, lists: deleteList(p.lists ?? [], l.id) })); }}>Delete</button>
+              </div>
+            ))
+          )}
+        </section>
+
+        <section>
+          <button className="linkbtn" onClick={() => { if (confirm("Clear your profile, preferences and weights? Your saved lists stay.")) clearAll(); }}>
             Clear my profile
           </button>
         </section>

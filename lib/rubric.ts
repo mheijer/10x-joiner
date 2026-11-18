@@ -235,6 +235,69 @@ export const DIMENSIONS: Dimension[] = [
   },
 ];
 
+/**
+ * Plain-English explainers for each check, shown when a user clicks "What is …?" in the scorecard. The course
+ * frameworks and cases behind each check (courseAnchor) are listed there, not on every row.
+ */
+export const EXPLAINERS: Record<DimensionKey, { what: string; why: string }> = {
+  market: {
+    what: "How big the opportunity is, whether a technology or behavior shift (a 'wave') is lifting it now, and whether the company has a path from its first market into bigger adjacent ones.",
+    why: "Great teams in small or shrinking markets cap out. A big, growing market lets a company make mistakes and still win, which is what makes your equity worth something.",
+  },
+  pmf: {
+    what: "Product-market fit: whether customers clearly need the product to get a job done, and show it through revenue, retention, usage and word of mouth, not just interest.",
+    why: "PMF is the dividing line between a startup searching for a business and one scaling a business. Joining before it means more risk and more upside; after it, the work is about scaling.",
+  },
+  growth: {
+    what: "How fast the business is growing (revenue, customers, usage) and whether that growth is speeding up or slowing down.",
+    why: "Growth compounds into valuation, promotions and new roles. A company growing fast creates scope for you faster than you can ask for it.",
+  },
+  moat: {
+    what: "What would stop a well-funded competitor from copying the product tomorrow: network effects, switching costs, proprietary data, scale economies, brand or regulation.",
+    why: "Without a moat, success attracts competitors that squeeze prices and growth. A defensible business keeps its value long enough for your equity to vest and pay off.",
+  },
+  competition: {
+    what: "Whether the company is fighting many similar rivals for the same customers (a red ocean) or has carved out uncontested space (a blue ocean), and how it ranks against the leaders.",
+    why: "In crowded markets usually one or two winners take most of the value. Being at a likely winner matters more than being at a good company in a crowded field.",
+  },
+  business_model: {
+    what: "How the company makes money and whether each customer is profitable: pricing, gross margin, what it costs to win a customer, and how revenue grows within accounts.",
+    why: "Good unit economics mean growth creates value instead of burning cash. Weak economics lead to layoffs and down rounds when funding tightens.",
+  },
+  gtm: {
+    what: "Go-to-market: whether the company knows exactly who its ideal customer is (ICP) and has a repeatable way to reach and sell to them.",
+    why: "Many startups with good products stall because they can't sell repeatably. A sharp, repeatable sales motion is what turns PMF into scale.",
+  },
+  independence: {
+    what: "Whether a partner, platform, channel or model provider controls the company's fate (a gatekeeper that could raise prices, copy it or cut it off).",
+    why: "A gatekeeper can capture most of the value or end the business overnight. Independence protects the outcome you're betting your time on.",
+  },
+  risk_retirement: {
+    what: "Which of the big risks (technology, market demand, regulation, go-to-market, financing) the company has already eliminated with evidence.",
+    why: "Each risk retired raises the odds of success. Knowing which risks remain tells you what could still go wrong after you join.",
+  },
+  capital: {
+    what: "Whether the company has raised the right amount from strong investors for its plan, and uses it efficiently (for example, revenue per employee and runway).",
+    why: "Too little money means a scramble; too much too early inflates the valuation and the expectations. Runway decides whether the company survives a bad year.",
+  },
+  team: {
+    what: "Whether the founders are uniquely suited to this problem (founder-market fit) and are building a strong organization that attracts talent.",
+    why: "You'll learn most from strong leaders, and the best people attract more of them. Team quality is the best early predictor of how the company handles setbacks.",
+  },
+  ai_positioning: {
+    what: "Whether AI strengthens the company (better product, lower costs, data advantages) or threatens it (AI makes the product easy to copy or replaces it).",
+    why: "AI is reshaping most software markets. Companies on the right side of it gain; companies on the wrong side can lose their market quickly.",
+  },
+  valuation_headroom: {
+    what: "How much room today's valuation has to grow: how big a realistic exit is compared to the price you'd join at.",
+    why: "Your equity pays off only if the company grows from today's price. A great company priced for perfection can still be a mediocre deal for a new joiner.",
+  },
+  career_velocity: {
+    what: "How fast you'd grow there: headcount growth, new teams and roles opening up, and scope given to people early on.",
+    why: "Fast-growing companies create promotions and new responsibilities. Even if the equity doesn't pay off, the experience can.",
+  },
+};
+
 export const WINNING_DIMENSIONS = DIMENSIONS.filter((d) => d.group === "winning");
 export const JOINER_DIMENSIONS = DIMENSIONS.filter((d) => d.group === "joiner");
 
@@ -258,6 +321,24 @@ export interface RedFlag {
   detail: string;
   source: string | null;
 }
+
+/**
+ * What counts as a red flag (team rule, Nov 17): a discrete, verifiable EVENT or CONDUCT a joiner should know about:
+ * leadership turnover, layoffs or a down round, lawsuits or regulatory action, governance or ethics problems, or the
+ * company's OWN claims shown to be false. NOT red flags: data sources disagreeing (those are "conflicts"), metrics
+ * that are merely self-reported or unaudited, and structural business risks the grades already score (competition,
+ * dependence on a platform or partner, customer concentration, being pre-revenue).
+ * Applied to stored evaluations too, so older flags follow the rule without re-running anything.
+ */
+const NOT_A_FLAG = /doesn'?t match|does not match|mismatch|inconsisten|disagree|differ(s|ent)? (from|between)|conflicting|self-reported|not (been )?(independently )?(verified|audited|reproduced|disclosed)|unaudited|aggregator|estimate[sd]? (by|from)|reliance|relies on|depend(s|ence|ent) on|competit|pre-revenue|monetization|concentration/i;
+export function isRealRedFlag(f: { type?: string; detail?: string | null }): boolean {
+  if (f.type === "customer_or_partner_concentration") return false; // scored under Independence and Business model
+  if (f.type === "overstated_metrics") return !NOT_A_FLAG.test(f.detail ?? "") || /restat|retract|misstat|fabricat|fraud|inflated/i.test(f.detail ?? "");
+  if (f.type && ["leadership_exodus", "layoffs_or_down_round", "legal_or_regulatory", "governance_ethics"].includes(f.type)) return true;
+  return !NOT_A_FLAG.test(f.detail ?? "");
+}
+export const realRedFlags = <T extends { type?: string; detail?: string | null }>(flags: T[] | null | undefined): T[] =>
+  (flags ?? []).filter(isRealRedFlag);
 
 // ---------------------------------------------------------------- facts (filters + fit)
 export interface Facts {
@@ -377,7 +458,13 @@ Funding is supporting evidence for product-market fit, never the only evidence (
   (time between rounds, pre-emptive rounds, step-ups) as ONE supporting signal of type "investor_signal".
 - Record at least 3 PMF signals in "pmf_evidence", at least 2 of them customer-side (not "investor_signal").
   Without 2 customer-side signals, "pmf" is capped at 3 and gets LOW confidence; say what was missing.
-- Round sizes and investor names on their own (without pace) belong only in "capital" and "valuation_headroom".`;
+- Round sizes and investor names on their own (without pace) belong only in "capital" and "valuation_headroom".
+
+Red flags are for discrete, verifiable events or conduct only (at most 3, most important first): leadership turnover,
+layoffs or a down round, lawsuits or regulatory action, governance or ethics problems, or the company's OWN claims shown
+to be false. Do NOT list: disagreements between data sources (put those in "conflicts"), metrics that are merely
+self-reported or unaudited, or business risks the grades already cover (competition, platform or partner dependence,
+customer concentration, being pre-revenue). An empty list is a good answer when nothing qualifies.`;
 
 export function buildEvaluationPrompt(c: CompanyInput, measuredSignals = ""): string {
   const known = [
@@ -418,7 +505,7 @@ Start with what CUSTOMERS do, not what investors do. Find, in this order:
 2. Then everything else: latest funding rounds and valuation; headcount and its growth over the last year;
 customers and who buys (enterprise/SMB/consumer); pricing model and sales motion; competitors; founders' backgrounds;
 key dependencies (platforms, partners, channels, model providers); any red flags (lawsuits, regulatory action,
-layoffs, down rounds, leadership departures, disputed metrics); work policy and office locations;
+layoffs, down rounds, leadership departures, governance problems, the company's own claims proven false); work policy and office locations;
 whether it sponsors work visas (e.g. H-1B filings); any employee liquidity (tender offers, secondaries);
 which LTV phase it's in (CVP fit = proving customers love it; GTM fit = proving repeatable acquisition;
 BM fit = proving profitable unit economics; scaling = all three proven); and the careers page. Note whether the careers page is on
@@ -459,7 +546,7 @@ When you have finished researching, call the submit_evaluation tool. Its input m
     ${DIMENSIONS.map(scoreLine).join(",\n    ")}
   },
   "pmf_evidence": [{"type": "revenue|demand|retention|usage|organic_pull|pricing_power|investor_signal", "signal": "what it shows", "value": "the number or fact", "as_of": "YYYY-MM", "source": "url"}],
-  "red_flags": [{"type": "governance_ethics|overstated_metrics|leadership_exodus|layoffs_or_down_round|legal_or_regulatory|customer_or_partner_concentration", "severity": "low|medium|high", "detail": "one line", "source": "url"}],
+  "red_flags": [{"type": "governance_ethics|overstated_metrics|leadership_exodus|layoffs_or_down_round|legal_or_regulatory", "severity": "low|medium|high", "detail": "one line", "source": "url"}],
   "conflicts": ["e.g. 'Aggregators label the Feb 2024 round Seed vs Series A; used company blog'"]
 }`;
 }
@@ -490,7 +577,7 @@ export function normalizeEvaluation(obj: any): EvaluationResult {
     };
   }
   const severities = ["low", "medium", "high"];
-  const red_flags: RedFlag[] = Array.isArray(obj.red_flags)
+  const red_flags_all: RedFlag[] = Array.isArray(obj.red_flags)
     ? obj.red_flags
         .filter((f: any) => f && typeof f.detail === "string")
         .map((f: any) => ({
@@ -500,6 +587,7 @@ export function normalizeEvaluation(obj: any): EvaluationResult {
           source: typeof f.source === "string" ? f.source : null,
         }))
     : [];
+  const red_flags = realRedFlags(red_flags_all).slice(0, 3); // team rule: events and conduct only, at most 3
   const pmf_evidence: PmfEvidence[] = Array.isArray(obj.pmf_evidence)
     ? obj.pmf_evidence.filter((e: any) => e && typeof e.value === "string" && typeof e.signal === "string").slice(0, 10)
     : [];
@@ -581,7 +669,7 @@ export const EVALUATION_TOOL = {
         items: {
           type: "object",
           properties: {
-            type: { type: "string" },
+            type: { type: "string", enum: ["governance_ethics", "overstated_metrics", "leadership_exodus", "layoffs_or_down_round", "legal_or_regulatory"] },
             severity: { type: "string", enum: ["low", "medium", "high"] },
             detail: { type: "string" },
             source: { type: "string" },

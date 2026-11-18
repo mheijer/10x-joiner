@@ -39,8 +39,12 @@ const toRow = (userId: string, p: ProfileState) => ({
   weights_source: p.weights_source,
   blend: p.blend,
   red_flag_mode: p.red_flag_mode,
+  lists: p.lists ?? [],
   updated_at: new Date().toISOString(),
 });
+// Saved lists need a "lists" column (supabase/migrations/003_saved_lists.sql). Until it exists, they stay in this browser.
+const withoutLists = ({ lists, ...rest }: ReturnType<typeof toRow>) => rest;
+const missingListsColumn = (e: { message?: string } | null) => !!e && /lists/i.test(e.message ?? "");
 
 const fromRow = (row: any): ProfileState => ({
   background_text: row.background_text ?? "",
@@ -51,6 +55,7 @@ const fromRow = (row: any): ProfileState => ({
   weights_source: row.weights_source ?? "default",
   blend: row.blend != null ? Number(row.blend) : 0.5,
   red_flag_mode: row.red_flag_mode ?? "show",
+  lists: Array.isArray(row.lists) ? row.lists : [],
 });
 
 export function useProfile() {
@@ -76,11 +81,13 @@ export function useProfile() {
     const { data: row } = await db.from("profiles").select("*").eq("user_id", uid).maybeSingle();
     if (row) {
       const remote = fromRow(row);
+      if (!remote.lists.length && current.current.lists?.length) remote.lists = current.current.lists; // keep this browser's lists
       current.current = remote;
       setProfile(remote);
       writeLocal(remote);
     } else if (current.current !== EMPTY_PROFILE) {
-      await db.from("profiles").upsert(toRow(uid, current.current));
+      const { error } = await db.from("profiles").upsert(toRow(uid, current.current));
+      if (missingListsColumn(error)) await db.from("profiles").upsert(withoutLists(toRow(uid, current.current)));
     }
     setStatus("saved");
     loaded.current = true;
@@ -127,7 +134,8 @@ export function useProfile() {
       if (timer.current) clearTimeout(timer.current);
       setStatus("saving");
       timer.current = setTimeout(async () => {
-        const { error } = await db.from("profiles").upsert(toRow(userId, next));
+        let { error } = await db.from("profiles").upsert(toRow(userId, next));
+        if (missingListsColumn(error)) ({ error } = await db.from("profiles").upsert(withoutLists(toRow(userId, next))));
         setStatus(error ? "error" : "saved");
       }, 700);
     },
@@ -179,7 +187,8 @@ export function useProfile() {
     if (data.session) await adopt(data.session);
   }, [adopt]);
 
-  const clearAll = useCallback(() => update({ ...EMPTY_PROFILE }), [update]);
+  // Clearing the profile keeps saved lists (they're bookmarks, not preferences)
+  const clearAll = useCallback(() => update((p) => ({ ...EMPTY_PROFILE, lists: p.lists ?? [] })), [update]);
 
   return { profile, update, status, signedIn: !!userId, email, accessToken, clearAll, sendSignInLink, signOut };
 }

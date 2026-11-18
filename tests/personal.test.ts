@@ -18,7 +18,9 @@ assert.equal(isPersonalized(EMPTY_PROFILE), false);
 assert.deepEqual(activeWeights(EMPTY_PROFILE), DEFAULT_WEIGHTS);
 const p0 = personalFor(company, EMPTY_PROFILE);
 assert.equal(p0.winning, company.composite);
-assert.equal(p0.personal, company.composite, "no profile → For you = Probability of Winning");
+// No profile → For you = Company score = average of Winning and Joiner Upside
+assert.equal(p0.company, Math.round(((company.composite + 71.3) / 2) * 10) / 10);
+assert.equal(p0.personal, p0.company, "no profile → For you = Company score");
 
 // 2. Suggested weights stored but not applied do nothing.
 const stored = { ...EMPTY_PROFILE, weights: WEIGHT_PRESETS.safety_first.weights };
