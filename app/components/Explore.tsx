@@ -216,7 +216,7 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
         </nav>
         <div className="spacer" />
         <div className="muted small">
-          {companies.length} companies · {evaluatedCount} scored · <span title="A representative random sample of the 556 US companies on the Rocketship List 2026 (matched on region, founding year and sector), plus companies users added">sample of the Rocketship List 2026 (US)</span>
+          {companies.length} companies · {evaluatedCount} scored · <span title="A representative random sample of 100 of the 556 US companies on the Rocketship List 2026 (matched on region, founding year and sector), 15 well-known late-stage companies added on top, and companies users added. Public and acquired companies are left out.">Rocketship List 2026 (US): 100-company sample + 15 late-stage picks</span>
         </div>
         <button className="btn" onClick={() => setShowAdd(true)} title="Research and score a company that isn't on the list">+ Add a company</button>
         <button className={`btn ${personalized ? "" : "primary"}`} onClick={() => setShowProfile(true)}>

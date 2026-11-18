@@ -302,8 +302,8 @@ async function evaluate() {
   if (error) throw error;
   let data = (rows0 ?? []).filter((c: any) => !ONLY_SET || ONLY_SET.has(String(c.name).toLowerCase()));
   if (SAMPLE) {
-    const { inSample } = await import("../lib/sample.ts");
-    data = data.filter((c: any) => inSample(String(c.name)));
+    const { inAppList } = await import("../lib/scope.ts"); // the sample + the late-stage additions
+    data = data.filter((c: any) => inAppList(String(c.name)));
   }
   if (flag("--calibration")) {
     const cal: { name: string }[] = parse(fs.readFileSync("data/calibration.csv", "utf8"), { columns: true });
@@ -384,9 +384,9 @@ async function jobs() {
   const { supabaseAdmin } = await import("../lib/supabase-admin.ts");
   const db = supabaseAdmin();
   const { data } = await db.from("companies").select("id,name,domain,ats_provider,ats_slug,careers_url").eq("is_seed", true);
-  const { inSample } = await import("../lib/sample.ts");
+  const { inAppList } = await import("../lib/scope.ts");
   const list = (data ?? [])
-    .filter((c: any) => !SAMPLE || inSample(String(c.name)))
+    .filter((c: any) => !SAMPLE || inAppList(String(c.name)))
     .filter((c: any) => !ONLY_SET || ONLY_SET.has(String(c.name).toLowerCase()))
     .slice(0, flag("--limit") ? LIMIT : Infinity); // job boards are free: no 20-company cap
   let found = 0;
