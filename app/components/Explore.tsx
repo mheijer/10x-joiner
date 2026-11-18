@@ -49,6 +49,12 @@ const metroOf = (hq: string | null) => (hq ? hq.split(",")[0].trim() : null);
 
 export default function Explore({ companies, loadError }: { companies: CompanyRow[]; loadError: string | null }) {
   const [view, setView] = useState<"map" | "scatter">("map");
+  // Phones show one pane at a time (List / Map / Filters, switched by a bottom bar). Ignored on desktop.
+  const [mview, setMview] = useState<"list" | "map" | "filters">("list");
+  // A map that was hidden (display:none) needs a resize nudge to draw when it becomes visible.
+  useEffect(() => {
+    if (mview === "map") requestAnimationFrame(() => window.dispatchEvent(new Event("resize")));
+  }, [mview, view]);
   const [q, setQ] = useState("");
   const [onlyEvaluated, setOnlyEvaluated] = useState(false);
   const [stages, setStages] = useState<Bucket[]>([]);
@@ -87,6 +93,7 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
       if (!res.ok) throw new Error(j.error ?? "AI search failed");
       setAiOrder(true);
       setSelected(null); // show the matches, not the company that was open
+      setMview("list");
       setAi({ q: qq, understood: j.understood, picks: j.picks ?? [], filters: j.filters ?? {} });
     } catch (e: any) {
       setAiError(e.message);
@@ -215,12 +222,15 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
           <button className={`tab ${view === "scatter" ? "active" : ""}`} onClick={() => setView("scatter")}>Scatter</button>
         </nav>
         <div className="spacer" />
-        <div className="muted small">
+        <div className="muted small d-only">
           {companies.length} companies · {evaluatedCount} scored · <span title="A representative random sample of 100 of the 556 US companies on the Rocketship List 2026 (matched on region, founding year and sector), 15 well-known late-stage companies added on top, and companies users added. Public and acquired companies are left out.">Rocketship List 2026 (US): 100-company sample + 15 late-stage picks</span>
         </div>
-        <button className="btn" onClick={() => setShowAdd(true)} title="Research and score a company that isn't on the list">+ Add a company</button>
+        <button className="btn" onClick={() => setShowAdd(true)} title="Research and score a company that isn't on the list">
+          <span className="d-only">+ Add a company</span><span className="m-only">+ Add</span>
+        </button>
         <button className={`btn ${personalized ? "" : "primary"}`} onClick={() => setShowProfile(true)}>
-          {email ? `${email.split("@")[0]} · profile` : personalized ? "Your profile ✓" : "Personalize: tell us about you"}
+          <span className="d-only">{email ? `${email.split("@")[0]} · profile` : personalized ? "Your profile ✓" : "Personalize: tell us about you"}</span>
+          <span className="m-only">{personalized || email ? "Profile ✓" : "Personalize"}</span>
         </button>
       </header>
 
@@ -229,7 +239,7 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
           Couldn't load companies: {loadError}. Check the Supabase environment variables.
         </div>
       ) : (
-        <div className="main">
+        <div className={`main m-${mview} ${selectedCompany || showProfile || showAdd ? "m-overlay" : ""}`}>
           <aside className="filters">
             <div className="row" style={{ justifyContent: "space-between", marginBottom: 10 }}>
               <strong>Filters</strong>
@@ -478,6 +488,12 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
           </aside>
         </div>
       )}
+      {/* Phones only: switch between the list, the map/scatter and the filters */}
+      <nav className="mnav" aria-label="Views">
+        <button className={mview === "list" ? "on" : ""} onClick={() => setMview("list")}>☰ List <span className="mcount">{sorted.length}</span></button>
+        <button className={mview === "map" ? "on" : ""} onClick={() => setMview("map")}>{view === "map" ? "◎ Map" : "◎ Scatter"}</button>
+        <button className={mview === "filters" ? "on" : ""} onClick={() => setMview("filters")}>⚙ Filters{otherFiltersOn ? " •" : ""}</button>
+      </nav>
     </div>
   );
 }
