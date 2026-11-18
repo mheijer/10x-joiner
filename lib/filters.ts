@@ -20,6 +20,7 @@ export interface Preferences {
   risk_appetite?: "upside_seeker" | "balanced" | "safety_first" | "builder";
   min_base_salary_usd?: number | null; // soft: compared with posted pay in fit scoring
   interests?: string[]; // keywords from the profile ("healthcare", "AI agents", "fintech"): soft, used in fit
+  schools?: string[]; // schools they attended (from résumé or typed): used only for LinkedIn alumni searches, never in scoring
   hide_red_flags_at?: "medium" | "high" | null; // joiner's choice: hide companies with flags at/above this severity
 }
 

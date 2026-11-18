@@ -73,6 +73,7 @@ Testers: 10–15 HBS classmates, a 15-minute session each, in Nov 25–Dec 1 wee
 - **Key facts**: ARR estimate, revenue per employee, headcount growth, customer type, GTM motion, pricing model, work policy, visa sponsorship. Each is marked fresh or estimated, with an as-of date.
 - **Funding**: rounds table (date, round, amount, post-money; estimates flagged).
 - **Hiring**: live listings (title, team, location, link, **posted salary range**), roles in the user's target function highlighted. A **hiring focus** line ("62% Sales & CS: scaling go-to-market") is shown as a growth datapoint, never as a penalty. **Salary bands by function** where the company posts pay (required in CA, NY, CO, WA and others).
+- **Who to reach out to**: one-click LinkedIn searches for HBS alumni, all Harvard alumni and the user's other schools (typed in the profile or read from the résumé) who work at the company now. Links open the company's own LinkedIn People tab, found on the company's website, so the company is always the right one; if we can't find it, a general search with a "check their current company" note. The joiner runs the search themselves: we never scrape LinkedIn or show names.
 - **Equity package** (§9): estimated from the company's financials and the posted salary for the user's role, or from their real offer.
 - "As of" date on every evaluation, salary range and job list (data is a snapshot; see §10).
 

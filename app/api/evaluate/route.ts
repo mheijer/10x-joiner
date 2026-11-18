@@ -15,6 +15,7 @@ import { discoverJobs, countByFunction, boardUrl, classifyRole } from "@/lib/job
 import { hiringProfile } from "@/lib/hiring";
 import { inSample } from "@/lib/sample";
 import { collectSignals } from "@/lib/signals";
+import { findLinkedinSlug } from "@/lib/linkedin";
 
 export const maxDuration = 300; // evaluations with web search can take 1-2 minutes
 const MAX_COMPANIES_PER_USER = 3;
@@ -98,6 +99,9 @@ export async function POST(req: Request) {
       await db.from("companies").update({ ats_provider: board.provider, ats_slug: board.slug, hiring_profile: hiringProfile(board.jobs) }).eq("id", company.id);
     if (board?.jobs.length)
       await db.from("jobs").insert(board.jobs.map((j) => ({ company_id: company.id, ...j, job_function: classifyRole(j.title) })));
+    // The company's LinkedIn page, from its own website, for the alumni search (free; skipped if not found)
+    const slug = await findLinkedinSlug(domain, result.facts?.careers_url).catch(() => null);
+    if (slug) await db.from("companies").update({ linkedin_slug: slug }).eq("id", company.id);
     // Geocode from the researched HQ if the user didn't give one
     const { data: after } = await db.from("companies").select("hq_city,lat").eq("id", company.id).single();
     if (after?.hq_city && after.lat == null) {

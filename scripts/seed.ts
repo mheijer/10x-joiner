@@ -401,11 +401,36 @@ async function jobs() {
   console.log(`Jobs: found boards for ${found}/${list.length} companies.`);
 }
 
+// ---------------------------------------------------------------- linkedin (free: reads each company's own website)
+async function linkedin() {
+  const { supabaseAdmin } = await import("../lib/supabase-admin.ts");
+  const { findLinkedinSlug } = await import("../lib/linkedin.ts");
+  const { inAppList } = await import("../lib/scope.ts");
+  const db = supabaseAdmin();
+  const { data } = await db.from("companies").select("id,name,domain,careers_url,linkedin_slug,is_seed");
+  const list = (data ?? [])
+    .filter((c: any) => !c.is_seed || !SAMPLE || inAppList(String(c.name)))
+    .filter((c: any) => !ONLY_SET || ONLY_SET.has(String(c.name).toLowerCase()))
+    .filter((c: any) => flag("--force") || !c.linkedin_slug);
+  const found: string[] = [];
+  const missing: string[] = [];
+  await pool(list, 5, async (c: any) => {
+    const slug = await findLinkedinSlug(c.domain, c.careers_url).catch(() => null);
+    if (!slug) return void missing.push(c.name);
+    found.push(`${c.name} → linkedin.com/company/${slug}`);
+    await db.from("companies").update({ linkedin_slug: slug }).eq("id", c.id);
+  });
+  console.log(found.sort().join("\n"));
+  if (missing.length) console.log(`\nNo LinkedIn link on their website (people search fallback): ${missing.sort().join(", ")}`);
+  console.log(`\nLinkedIn: found pages for ${found.length}/${list.length} companies.`);
+}
+
 let evaluatedCount = 0;
 (async () => {
   if (flag("--load")) await load();
   if (flag("--evaluate")) await evaluate();
   if (flag("--jobs")) await jobs();
+  if (flag("--linkedin")) await linkedin();
   costReport(evaluatedCount);
-  if (!["--load", "--evaluate", "--jobs"].some(flag)) console.log("Usage: npm run seed -- --load | --evaluate [--limit N] [--only NAME] [--dry-run] | --jobs");
+  if (!["--load", "--evaluate", "--jobs", "--linkedin"].some(flag)) console.log("Usage: npm run seed -- --load | --evaluate [--limit N] [--only NAME] [--dry-run] | --jobs | --linkedin");
 })();

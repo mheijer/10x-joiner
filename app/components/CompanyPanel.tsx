@@ -22,6 +22,7 @@ import type { Personal, ProfileState } from "@/lib/personal";
 import EquitySimulator from "./EquitySimulator";
 import SaveToList from "./SaveToList";
 import type { SavedList } from "@/lib/lists";
+import { alumniLinks, linkedinPageUrl } from "@/lib/linkedin";
 
 type Tab = "overview" | "scorecard" | "equity" | "hiring";
 type Dim = (typeof DIMENSIONS)[number];
@@ -551,8 +552,37 @@ export default function CompanyPanel({
             </div>
           )}
           {c.careers_url && <p className="small"><a href={c.careers_url} target="_blank" rel="noreferrer">See all roles on {c.name}'s careers page →</a></p>}
+          <ReachOut c={c} schools={effectivePreferences(profile).schools ?? []} onOpenProfile={onOpenProfile} />
         </div>
       )}
+    </div>
+  );
+}
+
+/** "Who to reach out to": alumni searches on LinkedIn that the joiner runs themselves (we never scrape LinkedIn). */
+function ReachOut({ c, schools, onOpenProfile }: { c: CompanyRow; schools: string[]; onOpenProfile?: () => void }) {
+  const links = alumniLinks(c, schools);
+  const exact = !!c.linkedin_slug;
+  const ownSchools = links.length > 2;
+  return (
+    <div className="reach">
+      <h3 className="sect">Who to reach out to</h3>
+      <div className="muted small">Alumni who work at {c.name}, on LinkedIn. Opens in a new tab; you need to be signed in to LinkedIn.</div>
+      <div className="reach-links">
+        {links.map((l) => (
+          <a key={l.school} className="reach-btn" href={l.url} target="_blank" rel="noreferrer">{l.label} at {c.name} ↗</a>
+        ))}
+      </div>
+      <div className="muted small">
+        {exact ? (
+          <>Searches {c.name}'s own LinkedIn page (<a href={linkedinPageUrl(c.linkedin_slug)!} target="_blank" rel="noreferrer">linkedin.com/company/{c.linkedin_slug}</a>, linked from {c.domain ?? "its website"}), so everyone listed works there now.</>
+        ) : (
+          <>We couldn't find {c.name}'s LinkedIn page on its website, so this is a general LinkedIn search: check each person's current company.</>
+        )}
+        {!ownSchools && (
+          <> Add your other schools{onOpenProfile ? <> in <button className="linkbtn" onClick={onOpenProfile}>your profile</button></> : " in your profile"} (or upload your résumé) to search those networks too.</>
+        )}
+      </div>
     </div>
   );
 }
