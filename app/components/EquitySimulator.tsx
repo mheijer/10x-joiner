@@ -49,15 +49,13 @@ export default function EquitySimulator({
         <div className="simgrid">
           {/* ------------------------------------------------ inputs */}
           <div className="siminputs small">
-            <h4>Your base salary</h4>
-            <Field label="Base salary ($)" hint={src("base", initial.sources.base)}>
+            <div className="muted">Everything is pre-filled for {c.name}. Change what you know better.</div>
+            <h4>Salary</h4>
+            <Field label="Salary ($/yr)" hint={src("base", initial.sources.base)}>
               <input type="number" step={5000} value={s.baseSalaryUsd} onChange={(e) => set({ baseSalaryUsd: Number(e.target.value) }, "base")} />
             </Field>
-            <div className="muted">Everything else is pre-filled for {c.name}. Change it only if you know better.</div>
 
-            <details className="moreassump" open={edited.size > 0 && !(edited.size === 1 && edited.has("base"))}>
-            <summary>Change other assumptions</summary>
-            <h4>Your offer</h4>
+            <h4>Your equity offer</h4>
             <div className="chips">
               {([["estimate", "Estimate it for me"], ["percent", "I know my %"], ["shares", "I know my shares"]] as const).map(([k, l]) => (
                 <button key={k} className={`chip ${s.offerMode === k ? "on" : ""}`} onClick={() => set({ offerMode: k }, "offer")}>{l}</button>
@@ -111,6 +109,8 @@ export default function EquitySimulator({
               <input type="number" step={10} value={Math.round(s.preferenceUsd / 1e6)} onChange={(e) => set({ preferenceUsd: Number(e.target.value) * 1e6 }, "pref")} />
             </Field>
 
+            <details className="moreassump" open={edited.has("rounds") || edited.has("scen") || edited.has("prefown")}>
+            <summary>Future rounds and exit odds</summary>
             <h4>Future funding rounds</h4>
             <div className="muted">Each round raises the valuation (step-up) and dilutes you. In each outcome, only rounds priced below the exit are assumed to happen.</div>
             <div className="roundhead"><span>Round</span><span>Step-up (x)</span><span>Dilution %</span><span /></div>
@@ -149,9 +149,9 @@ export default function EquitySimulator({
             ) : (
               <>
                 <div className="kpis four">
-                  <div className="kpi"><div className="v">{usd(r.expectedValueUsd)}</div><div className="l">Expected value of your equity (probability-weighted)</div></div>
+                  <div className="kpi tckpi"><div className="v">{usd(r.totalCompPerYearUsd)}</div><div className="l">Total comp per year (salary + equity)</div></div>
                   <div className="kpi"><div className="v">{usd(r.equityPerYearUsd)}</div><div className="l">Equity per year stayed</div></div>
-                  <div className="kpi"><div className="v">{usd(r.totalCompPerYearUsd)}</div><div className="l">Base + equity per year</div></div>
+                  <div className="kpi"><div className="v">{usd(r.expectedValueUsd)}</div><div className="l">Equity over {s.yearsStay} yrs (probability-weighted)</div></div>
                   <div className="kpi"><div className="v">{usd(r.grantValueTodayUsd)}</div><div className="l">Full grant on paper today</div></div>
                 </div>
                 <div className="small" style={{ marginBottom: 8 }}>

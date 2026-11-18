@@ -10,6 +10,7 @@ import { scoreColor, quadrant } from "@/lib/display";
 import { isPersonalized, metricValue, personalFor, shownMetric, METRIC_LABEL, METRIC_SHORT } from "@/lib/personal";
 import type { Metric, Personal } from "@/lib/personal";
 import CompanyPanel from "./CompanyPanel";
+import { realRedFlags } from "@/lib/rubric";
 import ScatterView from "./ScatterView";
 import ProfileDrawer from "./ProfileDrawer";
 import AddCompany from "./AddCompany";
@@ -21,6 +22,20 @@ const MapView = dynamic(() => import("./MapView"), { ssr: false, loading: () => 
 type Bucket = "early" | "mid" | "late";
 type DimFilter = { key: string; min: number };
 type SortKey = "personal" | "composite" | "joiner_upside" | "name" | "funding";
+
+/** Minimum-score filter as plain choices (the same words the company panel uses), instead of a slider at zero. */
+function ScoreChoice({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const opts: [number, string][] = [[0, "Any"], [45, "Mixed+"], [60, "Good+"], [75, "Strong+"]];
+  return (
+    <div className="seg" role="radiogroup">
+      {opts.map(([v, l]) => (
+        <button key={v} role="radio" aria-checked={value === v} className={`segb ${value === v ? "on" : ""}`} onClick={() => onChange(v)} title={v ? `${v} or higher` : "No minimum"}>
+          {l}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 type AiResult = { q: string; understood: string; picks: { id: string; reason: string }[]; filters: Record<string, unknown> };
 
@@ -46,6 +61,7 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
   const [hideLowCoverage, setHideLowCoverage] = useState(false);
   const [hideFlagged, setHideFlagged] = useState(false);
   const [visaOnly, setVisaOnly] = useState(false);
+  const [listId, setListId] = useState<string>(""); // "" = all companies
   const [sort, setSort] = useState<SortKey>("composite");
   const [selected, setSelected] = useState<string | null>(null);
   const [lastScoreFilter, setLastScoreFilter] = useState<Metric | null>(null);
@@ -70,6 +86,7 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
       const j = await res.json();
       if (!res.ok) throw new Error(j.error ?? "AI search failed");
       setAiOrder(true);
+      setSelected(null); // show the matches, not the company that was open
       setAi({ q: qq, understood: j.understood, picks: j.picks ?? [], filters: j.filters ?? {} });
     } catch (e: any) {
       setAiError(e.message);
@@ -109,6 +126,8 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
 
   const scoreFiltersOn = minWin > 0 || minUp > 0 || dims.length > 0 || hideLowCoverage;
 
+  const activeList = (profile.lists ?? []).find((l) => l.id === listId) ?? null;
+  const savedIds = useMemo(() => new Set((profile.lists ?? []).flatMap((l) => l.company_ids)), [profile.lists]);
   const filtered = useMemo(() => {
     const text = ai ? "" : q.trim().toLowerCase();
     const lo = sizeMin ? Number(sizeMin) : null;
@@ -117,6 +136,7 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
       const evaluated = c.composite != null;
       if ((onlyEvaluated || scoreFiltersOn) && !evaluated) return false;
       if (ai && !aiRank.has(c.id)) return false;
+      if (activeList && !activeList.company_ids.includes(c.id)) return false;
       if (text && !textMatch(c, text)) return false;
       if (stages.length) {
         if (!c.stage) return false;
@@ -129,11 +149,11 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
       if (minUp > 0 && (c.joiner_upside ?? 0) < minUp) return false;
       for (const d of dims) if ((c.scores?.[d.key]?.score ?? 0) < d.min) return false;
       if (hideLowCoverage && coverage(c).level === "low") return false;
-      if ((hideFlagged || profile.red_flag_mode === "hide") && (c.red_flags ?? []).some((f) => f.severity === "medium" || f.severity === "high")) return false;
+      if ((hideFlagged || profile.red_flag_mode === "hide") && realRedFlags(c.red_flags).some((f) => f.severity === "medium" || f.severity === "high")) return false;
       if (visaOnly && !(c.sponsors_visas === "yes" || c.sponsors_visas === "likely")) return false;
       return true;
     });
-  }, [companies, q, onlyEvaluated, scoreFiltersOn, stages, sizeMin, sizeMax, metro, minWin, minUp, dims, hideLowCoverage, hideFlagged, visaOnly, P, profile.red_flag_mode, ai, aiRank]);
+  }, [companies, q, onlyEvaluated, scoreFiltersOn, stages, sizeMin, sizeMax, metro, minWin, minUp, dims, hideLowCoverage, hideFlagged, visaOnly, P, profile.red_flag_mode, ai, aiRank, activeList]);
 
   const sorted = useMemo(() => {
     const arr = [...filtered];
@@ -163,8 +183,9 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
   }, [companies, q, ai]);
   const otherFiltersOn =
     onlyEvaluated || stages.length > 0 || !!sizeMin || !!sizeMax || !!metro || minWin > 0 || minUp > 0 || dims.length > 0 ||
-    hideLowCoverage || hideFlagged || visaOnly || profile.red_flag_mode === "hide";
+    hideLowCoverage || hideFlagged || visaOnly || profile.red_flag_mode === "hide" || !!listId;
   const clearOtherFilters = () => {
+    setListId("");
     setOnlyEvaluated(false); setStages([]); setSizeMin(""); setSizeMax(""); setMetro("");
     setMinWin(0); setMinUp(0); setLastScoreFilter(null); setDims([]); setHideLowCoverage(false); setHideFlagged(false); setVisaOnly(false);
   };
@@ -181,7 +202,7 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
   const evaluatedCount = companies.filter((c) => c.composite != null).length;
   const toggleStage = (b: Bucket) => setStages((s) => (s.includes(b) ? s.filter((x) => x !== b) : [...s, b]));
   const reset = () => {
-    setQ(""); setAi(null); setAiError(null); setOnlyEvaluated(false); setStages([]); setSizeMin(""); setSizeMax(""); setMetro("");
+    setQ(""); setAi(null); setAiError(null); setListId(""); setOnlyEvaluated(false); setStages([]); setSizeMin(""); setSizeMax(""); setMetro("");
     setMinWin(0); setMinUp(0); setLastScoreFilter(null); setDims([]); setHideLowCoverage(false); setHideFlagged(false); setVisaOnly(false);
   };
 
@@ -214,6 +235,18 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
               <strong>Filters</strong>
               <button className="linkbtn" onClick={reset}>Reset</button>
             </div>
+
+            {(profile.lists ?? []).length > 0 && (
+              <div className="fgroup">
+                <label className="title">My lists</label>
+                <select value={listId} onChange={(e) => setListId(e.target.value)}>
+                  <option value="">All companies</option>
+                  {(profile.lists ?? []).map((l) => (
+                    <option key={l.id} value={l.id}>★ {l.name} ({l.company_ids.length})</option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <div className="fgroup">
               <label className="title">Search</label>
@@ -269,12 +302,23 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
             </div>
 
             <div className="fgroup">
-              <label className="title">Probability of Winning ≥ {minWin}</label>
-              <input className="range" type="range" min={0} max={100} step={5} value={minWin} onChange={(e) => { const v = Number(e.target.value); setMinWin(v); setLastScoreFilter(v > 0 ? "composite" : minUp > 0 ? "joiner_upside" : null); }} />
+              <label className="title">Will it win?</label>
+              <ScoreChoice
+                value={minWin}
+                onChange={(v) => { setMinWin(v); setLastScoreFilter(v > 0 ? "composite" : minUp > 0 ? "joiner_upside" : null); }}
+              />
             </div>
             <div className="fgroup">
-              <label className="title">Joiner Upside ≥ {minUp}</label>
-              <input className="range" type="range" min={0} max={100} step={5} value={minUp} onChange={(e) => { const v = Number(e.target.value); setMinUp(v); setLastScoreFilter(v > 0 ? "joiner_upside" : minWin > 0 ? "composite" : null); if (v > 0 && sort !== "joiner_upside" && (sort === "composite" || sort === "personal")) { sortTouched.current = true; setSort("joiner_upside"); } }} />
+              <label className="title">Is joining now a good deal?</label>
+              <ScoreChoice
+                value={minUp}
+                onChange={(v) => {
+                  setMinUp(v);
+                  setLastScoreFilter(v > 0 ? "joiner_upside" : minWin > 0 ? "composite" : null);
+                  if (v > 0 && sort !== "joiner_upside" && (sort === "composite" || sort === "personal")) { sortTouched.current = true; setSort("joiner_upside"); }
+                }}
+              />
+              <div className="muted small" style={{ marginTop: 4 }}>Score filters only include companies we've scored.</div>
             </div>
 
             <div className="fgroup">
@@ -319,7 +363,7 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
                 personalAxes={personalized ? { winning: (c) => P(c)?.winning ?? null, personal: (c) => P(c)?.personal ?? null, fit: (c) => P(c)?.fit.score ?? null } : null}
               />
             )}
-            {selectedCompany && <CompanyPanel c={selectedCompany} onClose={() => setSelected(null)} profile={profile} personal={P(selectedCompany)} />}
+            {selectedCompany && <CompanyPanel c={selectedCompany} onClose={() => setSelected(null)} profile={profile} personal={P(selectedCompany)} onOpenProfile={() => setShowProfile(true)} onListsChange={(lists) => update({ lists })} />}
             {showAdd && (
               <AddCompany
                 accessToken={accessToken}
@@ -390,7 +434,7 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
             )}
             {sorted.slice(0, 300).map((c) => {
               const cov = coverage(c);
-              const flags = (c.red_flags ?? []).filter((f) => f.severity !== "low").length;
+              const flags = realRedFlags(c.red_flags).length;
               const pc = P(c);
               const quad = quadrant(pc?.winning ?? c.composite, c.joiner_upside);
               const shown = valueOf(c);
@@ -400,7 +444,11 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
                 .filter(([, v]) => v != null);
               return (
                 <div key={c.id} className={`item ${selected === c.id ? "sel" : ""}`} onClick={() => setSelected(c.id)}>
-                  <div className="name">{c.name}{!c.is_seed && <span className="badge user" style={{ marginLeft: 6 }}>Added by a user</span>}</div>
+                  <div className="name">
+                    {c.name}
+                    {savedIds.has(c.id) && <span className="star" title="In one of your lists">★</span>}
+                    {!c.is_seed && <span className="badge user" style={{ marginLeft: 6 }}>Added by a user</span>}
+                  </div>
                   <div>
                     {shown != null ? (
                       <span className="pill" style={{ background: scoreColor(shown) }} title={METRIC_LABEL[metric]}>

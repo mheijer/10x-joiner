@@ -102,7 +102,8 @@ create table if not exists profiles (
   blend           numeric default 0.5,    -- winning vs fitting me
   red_flag_mode   text default 'show',    -- show | penalize | hide
   profile_version int default 1,          -- bumps when background/goals change; invalidates cached explanations
-  updated_at      timestamptz not null default now()
+  updated_at      timestamptz not null default now(),
+  lists           jsonb not null default '[]'::jsonb  -- saved lists of companies (migration 003)
 );
 
 -- Fit SCORES are computed with plain math in the app (lib/fitmath.ts), so nothing is stored for them.

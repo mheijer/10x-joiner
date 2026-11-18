@@ -4,7 +4,7 @@
 //   - Personal score: what each user's list is ranked by
 // Red flags never change scores silently: they are shown, and penalizing them is the user's choice.
 // Pure functions, no I/O.
-import { DEFAULT_WEIGHTS, JOINER_DIMENSIONS, WINNING_DIMENSIONS } from "./rubric.ts";
+import { DEFAULT_WEIGHTS, JOINER_DIMENSIONS, WINNING_DIMENSIONS, realRedFlags } from "./rubric.ts";
 import type { Confidence, DimensionKey, DimensionScore, RedFlag, Severity, WinningKey } from "./rubric.ts";
 
 export type Weights = Record<WinningKey, number>;
@@ -91,6 +91,20 @@ export const WEIGHT_PRESETS: Record<string, { label: string; description: string
  *                − red-flag penalty (only if the user opted in).
  * blend defaults to 0.5 and is a user setting ("winning vs fitting me").
  */
+/**
+ * Company score: the two company-side questions, equally weighted (team decision, Nov 17):
+ *   "Will it win?" (Probability of Winning, with the user's weights) and "Is joining now a good deal?" (Joiner Upside).
+ */
+export function companyScore(scores: Scores, userWeights?: Partial<Weights>): number {
+  const win = composite(scores, normalizeWeights(userWeights ?? {}));
+  const up = joinerUpside(scores);
+  return r1(up == null || Number.isNaN(up) ? win : (win + up) / 2);
+}
+
+/**
+ * "For you" = blend x Company score + (1 - blend) x Fit to you, minus red-flag penalties if the user opted in.
+ * Without a profile there is no fit, so For you = Company score.
+ */
 export function personalScore(params: {
   scores: Scores;
   userWeights?: Partial<Weights>;
@@ -99,10 +113,10 @@ export function personalScore(params: {
   profileFit: number | null; // null = not computed yet
   blend?: number;
 }): number {
-  const quality = composite(params.scores, normalizeWeights(params.userWeights ?? {}));
+  const company = companyScore(params.scores, params.userWeights);
   const b = Math.min(1, Math.max(0, params.blend ?? 0.5));
-  const base = params.profileFit == null ? quality : b * quality + (1 - b) * params.profileFit;
-  const penalty = params.penalizeRedFlags ? redFlagPenalty(params.redFlags ?? []) : 0;
+  const base = params.profileFit == null ? company : b * company + (1 - b) * params.profileFit;
+  const penalty = params.penalizeRedFlags ? redFlagPenalty(realRedFlags(params.redFlags ?? [])) : 0;
   return r1(Math.max(0, base - penalty));
 }
 

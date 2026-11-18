@@ -4,12 +4,13 @@
 // The team's LTV default weights are always the baseline. A user's own weights are used only after they choose to
 // apply them ("Apply suggested weights", a preset, or moving a slider), and "Reset to default" brings the defaults back.
 import { DEFAULT_WEIGHTS } from "./rubric.ts";
-import { composite, normalizeWeights, personalScore } from "./scoring.ts";
+import { companyScore, composite, normalizeWeights, personalScore } from "./scoring.ts";
 import type { Weights } from "./scoring.ts";
 import { computeFit } from "./fitmath.ts";
 import type { FitResult } from "./fitmath.ts";
 import type { Preferences } from "./filters.ts";
 import type { HiringProfile } from "./hiring.ts";
+import type { SavedList } from "./lists.ts";
 import { estimatePackage } from "./equity.ts";
 import type { PackageEstimate } from "./equity.ts";
 
@@ -33,6 +34,7 @@ export interface ProfileState {
   weights_source: WeightsSource;
   blend: number; // 1 = only company quality, 0 = only fit to me
   red_flag_mode: RedFlagMode;
+  lists: SavedList[]; // saved lists of companies (not used in scoring)
 }
 
 export const EMPTY_PROFILE: ProfileState = {
@@ -44,6 +46,7 @@ export const EMPTY_PROFILE: ProfileState = {
   weights_source: "default",
   blend: 0.5,
   red_flag_mode: "show",
+  lists: [],
 };
 
 /**
@@ -90,6 +93,7 @@ export interface ScorableCompany {
 export interface Personal {
   fit: FitResult; // 0-100, every point traced to a preference
   winning: number | null; // Probability of Winning under the active weights (= team score when on defaults)
+  company: number | null; // Company score: average of Winning and Joiner Upside (what "company quality" means)
   personal: number | null; // what "For you" ranks by; null if not evaluated
 }
 
@@ -112,7 +116,7 @@ export function personalFor(c: ScorableCompany, p: ProfileState): Personal {
     effectivePreferences(p),
   );
   const evaluated = c.composite != null && c.scores && Object.keys(c.scores).length > 0;
-  if (!evaluated) return { fit, winning: null, personal: null };
+  if (!evaluated) return { fit, winning: null, company: null, personal: null };
   const weights = activeWeights(p);
   const winning = p.weights_source === "default" ? (c.composite as number) : composite(c.scores as any, weights);
   const personal = personalScore({
@@ -123,7 +127,7 @@ export function personalFor(c: ScorableCompany, p: ProfileState): Personal {
     profileFit: isPersonalized(p) ? fit.score : null,
     blend: p.blend,
   });
-  return { fit, winning, personal };
+  return { fit, winning, company: companyScore(c.scores as any, weights), personal };
 }
 
 // ------------------------------------------------------------------ which number the list pill and map pins show

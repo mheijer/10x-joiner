@@ -73,7 +73,7 @@ The weights follow the course's sequencing logic (*CVP fit → GTM fit → BM fi
 The equity estimator (`lib/equity.ts`) puts numbers on valuation headroom. Default exit scenarios are multiples of *today's* valuation and vary by stage, where stage is judged by traction (PMF score) as well as by round name. Early companies bust more often but have more room to run; late-stage companies are the reverse.
 
 ## 4. Red flags (Module 5): the joiner's call
-Types: governance or ethics, overstated metrics ("foie gras effect"), leadership exodus, layoffs or down round, legal or regulatory action, and customer or partner concentration. Each flag is shown with its source on the company card and page. **Scores are never adjusted silently.** Each user chooses one of:
+**What counts (team rule, Nov 17):** discrete, verifiable events or conduct only: leadership exodus or a CEO change, layoffs or a down round, legal or regulatory action, governance or ethics problems, and the company's *own* claims shown to be false ("foie gras effect"). **What doesn't:** data sources disagreeing (those are "conflicts"), metrics that are merely self-reported or unaudited, and business risks the grades already score (competition, platform/partner dependence, customer concentration, being pre-revenue). At most 3 per company. The rule (`isRealRedFlag`, `lib/rubric.ts`) also filters flags stored before it existed. Each flag is shown with its source on the company card and page. **Scores are never adjusted silently.** Each user chooses one of:
 - **Show only** (default): see the flags and judge for yourself.
 - **Penalize**: subtract from your personal score (high -10, medium -4, capped at -30).
 - **Hide**: filter out companies with flags at or above a chosen severity.
@@ -194,6 +194,6 @@ Plain attributes, gathered during evaluation. **Team rules:**
 `data/calibration.csv` holds 20 companies chosen to stress-test the rubric. They include a head-to-head pair (Sierra vs. Decagon), two LTV companies (Clay, Blitzy), tough tech (Impulse Space, Nuro), sparse-data companies (Mendaera, Bedrock Robotics) and a data-gap case (Postman). Each teammate fills in gut scores *before* seeing the engine's. `npm run calibrate` reports the Spearman rank correlation (target ≥ 0.5) and the five biggest disagreements. Those disagreements are the best material for "What we learned".
 
 ## 9. Open questions for the team
-1. Should Joiner Upside feed the personal score, or stay a separate axis? (v2: separate.)
+1. ~~Should Joiner Upside feed the personal score?~~ Decided Nov 17: yes. **For you = blend × Company score + (1 − blend) × Fit to you**, where **Company score = average of Probability of Winning (with the user's weights) and Joiner Upside**. Joiner Upside stays its own axis on the scatter and quadrants.
 2. Are the red-flag penalties (high -10, medium -4) about right?
 3. Should AI positioning (5) carry more weight for an AI-heavy list?

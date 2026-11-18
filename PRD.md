@@ -124,3 +124,11 @@ Full rationale, course anchors and the worked Sierra example: **[docs/SCORING_FR
 ## Scope decision (Nov 17)
 - The app launches with **100 companies**: a representative random sample of the 556 US Rocketship List companies (`scripts/sample.ts`, seed 2026). Stratified by region × founding era (a stage proxy; the list has no stage, and its headcount/funding are stale), and chosen among 2,000 draws for the sector mix closest to the full list. Sierra, CloudZero and Mendaera are kept (already evaluated). Matches the full list within ~1-2 points on every dimension.
 - Evaluating the sample: ~97 × $0.75 ≈ $73 on Opus (pipeline task `evaluate-sample`, capped by `max_cost`).
+
+## Review round 2 decisions (Nov 17)
+- **For you** = blend × **Company score** + (1 − blend) × **Fit to you**. Company score = average of "Will it win?" and "Is joining now a good deal?". The panel shows this formula with the numbers filled in; the profile's slider says what it changes (only For you).
+- **Red flags** = events and conduct only (see SCORING_FRAMEWORK §4); data mismatches and already-scored business risks are not flags.
+- **Scorecard** shows one number per concept: points earned out of its weight. Concept explainers ("What is moat?") hold the course references.
+- **Total comp** (salary + equity per year) is the headline money number; equity levers (grant size or %, valuation) are editable on the panel.
+- **Saved lists**: users flag companies into named lists, stored with their profile (`profiles.lists`, migration 003).
+
