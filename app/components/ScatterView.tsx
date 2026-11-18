@@ -1,6 +1,6 @@
 "use client";
 // Scatter: any two measures against each other. Default: Probability of Winning vs Joiner Upside, with the four
-// quadrants (Pursue / Blue chip / Lottery ticket / Pass). With a profile, "For you" and "Fit to you" become axes too.
+// quadrants (Pursue / Safe bet / Lottery ticket / Pass). With a profile, "For you" and "Fit to you" become axes too.
 import { useState } from "react";
 import { ScatterChart, Scatter, XAxis, YAxis, ZAxis, CartesianGrid, Tooltip, ReferenceLine, ReferenceArea, ResponsiveContainer, Cell, LabelList } from "recharts";
 import type { CompanyRow } from "@/lib/supabase-public";
@@ -71,16 +71,15 @@ export default function ScatterView({
           <ResponsiveContainer width="100%" height="100%">
             <ScatterChart margin={{ top: 24, right: 40, bottom: 40, left: 20 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e4e3de" />
-              {quadrants && (
-                <>
-                  <ReferenceArea x1={60} x2={100} y1={60} y2={100} fill="#f0fdf4" fillOpacity={0.7} label={{ value: "Pursue", position: "insideTopRight", fill: "#166534", fontSize: 13 }} />
-                  <ReferenceArea x1={60} x2={100} y1={0} y2={60} fill="#eff6ff" fillOpacity={0.6} label={{ value: "Blue chip", position: "insideBottomRight", fill: "#1e40af", fontSize: 13 }} />
-                  <ReferenceArea x1={0} x2={60} y1={60} y2={100} fill="#fffbeb" fillOpacity={0.7} label={{ value: "Lottery ticket", position: "insideTopLeft", fill: "#92400e", fontSize: 13 }} />
-                  <ReferenceArea x1={0} x2={60} y1={0} y2={60} fill="#f9fafb" fillOpacity={0.7} label={{ value: "Pass", position: "insideBottomLeft", fill: "#6b7280", fontSize: 13 }} />
-                  <ReferenceLine x={60} stroke="#bbb" />
-                  <ReferenceLine y={60} stroke="#bbb" />
-                </>
-              )}
+              {/* An array, not a <>fragment</>: Recharts only renders reference areas that are direct children */}
+              {quadrants && [
+                <ReferenceArea key="q-pursue" x1={60} x2={100} y1={60} y2={100} fill="#f0fdf4" fillOpacity={0.7} ifOverflow="extendDomain" label={{ value: "Pursue", position: "insideTopRight", fill: "#166534", fontSize: 13 }} />,
+                <ReferenceArea key="q-safe" x1={60} x2={100} y1={0} y2={60} fill="#eff6ff" fillOpacity={0.6} ifOverflow="extendDomain" label={{ value: "Safe bet", position: "insideBottomRight", fill: "#1e40af", fontSize: 13 }} />,
+                <ReferenceArea key="q-lottery" x1={0} x2={60} y1={60} y2={100} fill="#fffbeb" fillOpacity={0.7} ifOverflow="extendDomain" label={{ value: "Lottery ticket", position: "insideTopLeft", fill: "#92400e", fontSize: 13 }} />,
+                <ReferenceArea key="q-pass" x1={0} x2={60} y1={0} y2={60} fill="#f9fafb" fillOpacity={0.7} ifOverflow="extendDomain" label={{ value: "Pass", position: "insideBottomLeft", fill: "#6b7280", fontSize: 13 }} />,
+                <ReferenceLine key="q-x" x={60} stroke="#bbb" />,
+                <ReferenceLine key="q-y" y={60} stroke="#bbb" />,
+              ]}
               <XAxis type="number" dataKey="x" name={x.label} domain={x.domain} label={{ value: x.label, position: "bottom", offset: 10 }} />
               <YAxis type="number" dataKey="y" name={y.label} domain={y.domain} label={{ value: y.label, angle: -90, position: "insideLeft", offset: 0 }} />
               <ZAxis type="number" dataKey="size" range={[60, 700]} />

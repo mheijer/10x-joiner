@@ -12,7 +12,7 @@ The design goal: **every number a user sees should trace back to a framework or 
 
 | | Low Joiner Upside | High Joiner Upside |
 |---|---|---|
-| **High Probability of Winning** | **Blue chip:** brand and stability, but equity is priced in and roles are narrower | **Pursue:** strong company with room to run |
+| **High Probability of Winning** | **Safe bet:** brand and stability, but equity is priced in and roles are narrower | **Pursue:** strong company with room to run |
 | **Low Probability of Winning** | **Pass** | **Lottery ticket:** big scope and cheap equity, but real risk |
 
 | Layer | Output | Notes |
@@ -117,7 +117,7 @@ Plain attributes, gathered during evaluation. **Team rules:**
 | Traction | $400M+ ARR | ~$35M ARR (2025 est.), 100+ enterprise logos in 2025 | ~$20M ARR Q1 '26, doubling quarterly (LTV case) | ~$42M ARR (est.) | FDA-cleared; pre-revenue |
 | **Probability of Winning** | **85.5** | **72.9** | **70.9** | **60.2** | **47.5** |
 | **Joiner Upside** | **75** | **55.3** | **80.3** | **53.8** | **61.3** |
-| Quadrant | Pursue | Blue chip-ish (priced high: ~130x ARR) | **Pursue** (best joiner deal of the five) | Middle | Lottery ticket |
+| Quadrant | Pursue | Safe bet-ish (priced high: ~130x ARR) | **Pursue** (best joiner deal of the five) | Middle | Lottery ticket |
 | Weakest | Moat, competition, BM | Valuation headroom; PMF/growth vs Sierra | Competition 2.5 (Cognition, Factory, Cursor, Claude Code, Codex); independence 2.5 (model providers are also competitors) | Competition, independence 2.5 | PMF, growth 1.5 |
 | Equity EV (example grant) | 0.002% → $482K | 0.01% → $687K | 0.02% → $512K | 0.05% → $473K | 0.1% → $505K (55% chance of $0) |
 

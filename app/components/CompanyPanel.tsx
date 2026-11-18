@@ -52,7 +52,7 @@ function QuadrantMini({ w, u }: { w: number; u: number }) {
         <text x={(pad + mid) / 2} y={(pad + midY) / 2 + 3} textAnchor="middle" fontSize="8.5" fill="#9a968c">Lottery</text>
         <text x={(mid + S - pad) / 2} y={(pad + midY) / 2 + 3} textAnchor="middle" fontSize="8.5" fill="#9a968c">Pursue</text>
         <text x={(pad + mid) / 2} y={(midY + S - pad) / 2 + 3} textAnchor="middle" fontSize="8.5" fill="#9a968c">Pass</text>
-        <text x={(mid + S - pad) / 2} y={(midY + S - pad) / 2 + 3} textAnchor="middle" fontSize="8.5" fill="#9a968c">Blue chip</text>
+        <text x={(mid + S - pad) / 2} y={(midY + S - pad) / 2 + 3} textAnchor="middle" fontSize="8.5" fill="#9a968c">Safe bet</text>
         <circle cx={x} cy={y} r="6" fill="var(--accent)" stroke="#fff" strokeWidth="2" />
         <text x={S / 2} y={S + 14} textAnchor="middle" fontSize="9" fill="#6b6860">Will it win? →</text>
       </g>
@@ -90,23 +90,21 @@ function ForYouCard({ personal, profile, upside, onFit, onProfile }: { personal:
       <Meter q="For you" score={personal.personal} sub="Your personal ranking for this company." />
       <div className="formula small">
         <div className="fpart">
-          <div className="fnum" style={{ color: scoreColor(personal.company) }}>{personal.company != null ? Math.round(personal.company) : "—"}</div>
+          <div className="fhead"><span className="fnum" style={{ color: scoreColor(personal.company) }}>{personal.company != null ? Math.round(personal.company) : "—"}</span><span className="fw">× {Math.round(b * 100)}%</span></div>
           <div className="flabel">Company score</div>
-          <div className="muted fsub">average of the two questions below</div>
+          <div className="muted fsub">average of "Will it win?" and "Good deal to join?" below</div>
         </div>
-        <div className="fop">× {Math.round(b * 100)}%<br />+</div>
+        <div className="fop">+</div>
         <div className="fpart">
-          <div className="fnum" style={{ color: scoreColor(personal.fit.score) }}>{personal.fit.score}</div>
+          <div className="fhead"><span className="fnum" style={{ color: scoreColor(personal.fit.score) }}>{personal.fit.score}</span><span className="fw">× {Math.round((1 - b) * 100)}%</span></div>
           <div className="flabel">Fit to you</div>
-          <div className="muted fsub">roles, stage, size, location, pay… <button className="linkbtn" onClick={onFit}>see fit ›</button></div>
+          <div className="muted fsub">roles, stage, size, location, pay · <button className="linkbtn" onClick={onFit}>see fit ›</button></div>
         </div>
-        <div className="fop">× {Math.round((1 - b) * 100)}%</div>
       </div>
       <div className="muted small">
-        The split comes from your profile ({Math.round(b * 100)}% company, {Math.round((1 - b) * 100)}% fit).
+        Your split: {Math.round(b * 100)}% company, {Math.round((1 - b) * 100)}% fit{onProfile && <> (<button className="linkbtn" onClick={onProfile}>change</button>)</>}.
         {profile.red_flag_mode === "penalize" ? " Red flags are subtracted (your setting)." : ""}
-        {onProfile && <> <button className="linkbtn" onClick={onProfile}>Change it ›</button></>}
-        {upside == null ? " This company has no Joiner Upside score, so Company score = Will it win?" : ""}
+        {upside == null ? " No Joiner Upside score yet, so Company score = Will it win?" : ""}
       </div>
     </div>
   );
@@ -300,14 +298,6 @@ export default function CompanyPanel({
             </div>
           ) : (
             <>
-              {personalized && personal ? (
-                <ForYouCard personal={personal} profile={profile} upside={c.joiner_upside} onFit={() => setTab("hiring")} onProfile={onOpenProfile} />
-              ) : (
-                <div className="note small" style={{ marginBottom: 10 }}>
-                  Want a personal ranking? <button className="linkbtn" onClick={onOpenProfile}>Tell us about you</button> and we'll add a For you score that blends these scores with how well the company fits you.
-                </div>
-              )}
-
               {qi && (
                 <div className="verdict" style={{ borderColor: qi.color }}>
                   <div>
@@ -316,6 +306,14 @@ export default function CompanyPanel({
                     <div className="small">{qi.detail}</div>
                   </div>
                   <QuadrantMini w={winning!} u={c.joiner_upside!} />
+                </div>
+              )}
+
+              {personalized && personal ? (
+                <ForYouCard personal={personal} profile={profile} upside={c.joiner_upside} onFit={() => setTab("hiring")} onProfile={onOpenProfile} />
+              ) : (
+                <div className="note small" style={{ marginBottom: 10 }}>
+                  Want a personal ranking? <button className="linkbtn" onClick={onOpenProfile}>Tell us about you</button> and we'll add a For you score that blends these scores with how well the company fits you.
                 </div>
               )}
 
@@ -333,7 +331,7 @@ export default function CompanyPanel({
                 score={c.joiner_upside}
                 onMore={() => setTab("scorecard")}
               />
-              {personalized && <div className="muted small" style={{ margin: "-4px 0 10px" }}>These two average into the Company score above.</div>}
+              {personalized && <div className="muted small" style={{ margin: "-4px 0 10px" }}>These two average into your Company score (above).</div>}
 
               <div className="hlgrid">
                 <Highlights title="Strengths" items={hl.strengths} tone="good" onOpen={showCheck} pts={pts} />

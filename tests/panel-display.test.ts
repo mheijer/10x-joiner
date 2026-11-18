@@ -11,7 +11,7 @@ assert.equal(band(null), "Not scored");
 assert.equal(gradeWord(5), "Excellent");
 assert.equal(gradeWord(3), "Fair");
 assert.equal(gradeWord(1), "Poor");
-for (const q of ["Pursue", "Blue chip", "Lottery ticket", "Pass"]) assert.ok(QUADRANT_INFO[q], q);
+for (const q of ["Pursue", "Safe bet", "Lottery ticket", "Pass"]) assert.ok(QUADRANT_INFO[q], q);
 assert.ok(QUADRANT_INFO[quadrant(86, 71)!]);
 
 assert.equal(firstSentence("Top-3 player. Lots more detail here."), "Top-3 player.");
