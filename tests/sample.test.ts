@@ -10,3 +10,15 @@ assert.ok(inSample("sierra"), "case-insensitive");
 const list = readFileSync("data/rocketship_2026_us.csv", "utf8");
 for (const n of SAMPLE_NAMES) assert.ok(list.includes(n), `${n} is on the Rocketship List`);
 console.log("SAMPLE OK");
+
+// Public companies are out of scope (Nov 17)
+import { inApp, isPublicCompany } from "../lib/scope.ts";
+assert.equal(isPublicCompany("Public"), true);
+assert.equal(isPublicCompany("IPO (2026)"), true);
+assert.equal(isPublicCompany("Series D+"), false);
+assert.equal(isPublicCompany(null), false);
+assert.equal(inApp({ name: "Sierra", is_seed: true, stage: "Series D+" }), true);
+assert.equal(inApp({ name: "Sierra", is_seed: true, stage: "Public" }), false, "public companies are hidden");
+assert.equal(inApp({ name: "Not In Sample Co", is_seed: true, stage: "Series B" }), false);
+assert.equal(inApp({ name: "Anything", is_seed: false, stage: "Series A" }), true, "user-added companies show");
+console.log("SCOPE OK");

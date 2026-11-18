@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin"; // all companies are shared, incl. user-added
 import { aiSearch } from "@/lib/search";
 import type { CatalogRow } from "@/lib/search";
-import { inSample } from "@/lib/sample";
+import { inApp } from "@/lib/scope";
 
 export const maxDuration = 60;
 
@@ -21,7 +21,7 @@ async function catalog(): Promise<CatalogRow[]> {
     .limit(2000);
   if (error) throw new Error(error.message);
   const rows = (data ?? [])
-    .filter((c: any) => !c.is_seed || inSample(c.name)) // same companies the app shows
+    .filter((c: any) => inApp(c)) // same companies the app shows
     .map((c: any) => ({ ...c, evaluated: c.composite != null })) as CatalogRow[];
   cache = { at: Date.now(), rows };
   return rows;
