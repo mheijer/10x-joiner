@@ -10,6 +10,7 @@ import { scoreColor, quadrant } from "@/lib/display";
 import { isPersonalized, metricValue, personalFor, shownMetric, METRIC_LABEL, METRIC_SHORT } from "@/lib/personal";
 import type { Metric, Personal } from "@/lib/personal";
 import CompanyPanel from "./CompanyPanel";
+import CompareView from "./CompareView";
 import { realRedFlags } from "@/lib/rubric";
 import ScatterView from "./ScatterView";
 import ProfileDrawer from "./ProfileDrawer";
@@ -68,6 +69,9 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
   const [hideFlagged, setHideFlagged] = useState(false);
   const [visaOnly, setVisaOnly] = useState(false);
   const [listId, setListId] = useState<string>(""); // "" = all companies
+  const [cmp, setCmp] = useState<string[]>([]); // up to two company ids checked for comparison
+  const [showCmp, setShowCmp] = useState(false);
+  const toggleCmp = (id: string) => setCmp((x) => (x.includes(id) ? x.filter((y) => y !== id) : x.length >= 2 ? x : [...x, id]));
   const [sort, setSort] = useState<SortKey>("composite");
   const [selected, setSelected] = useState<string | null>(null);
   const [lastScoreFilter, setLastScoreFilter] = useState<Metric | null>(null);
@@ -198,6 +202,7 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
   };
   const fitKey = ai ? `ai:${ai.q}` : q.trim().length >= 2 ? `q:${q.trim()}|${filtered.length}` : metro ? `m:${metro}` : "";
 
+  const byId = useMemo(() => new Map(companies.map((c) => [c.id, c] as const)), [companies]);
   const selectedCompany = selected ? companies.find((c) => c.id === selected) ?? null : null;
   // After adding a company, the page re-reads the list; open the new company once it arrives.
   useEffect(() => {
@@ -373,6 +378,15 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
                 personalAxes={personalized ? { winning: (c) => P(c)?.winning ?? null, personal: (c) => P(c)?.personal ?? null, fit: (c) => P(c)?.fit.score ?? null } : null}
               />
             )}
+            {showCmp && cmp.length === 2 && byId.get(cmp[0]) && byId.get(cmp[1]) && (
+              <CompareView
+                a={{ c: byId.get(cmp[0])!, p: P(byId.get(cmp[0])!) }}
+                b={{ c: byId.get(cmp[1])!, p: P(byId.get(cmp[1])!) }}
+                profile={profile}
+                onClose={() => setShowCmp(false)}
+                onOpen={(id) => { setShowCmp(false); setSelected(id); }}
+              />
+            )}
             {selectedCompany && <CompanyPanel c={selectedCompany} onClose={() => setSelected(null)} profile={profile} personal={P(selectedCompany)} onOpenProfile={() => setShowProfile(true)} onListsChange={(lists) => update({ lists })} />}
             {showAdd && (
               <AddCompany
@@ -455,6 +469,9 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
               return (
                 <div key={c.id} className={`item ${selected === c.id ? "sel" : ""}`} onClick={() => setSelected(c.id)}>
                   <div className="name">
+                    <label className="cmpbox" onClick={(e) => e.stopPropagation()} title={cmp.includes(c.id) ? "Remove from comparison" : cmp.length >= 2 ? "You can compare two companies at a time" : "Compare with another company"}>
+                      <input type="checkbox" checked={cmp.includes(c.id)} disabled={!cmp.includes(c.id) && cmp.length >= 2} onChange={() => toggleCmp(c.id)} />
+                    </label>
                     {c.name}
                     {savedIds.has(c.id) && <span className="star" title="In one of your lists">★</span>}
                     {!c.is_seed && <span className="badge user" style={{ marginLeft: 6 }}>Added by a user</span>}
@@ -485,6 +502,19 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
               </div>
             )}
             {sorted.length > 300 && <div className="empty small">Showing the first 300. Narrow the filters to see more.</div>}
+            {cmp.length > 0 && (
+              <div className="cmpbar">
+                <span className="small">
+                  {cmp.length === 1
+                    ? <>Comparing <b>{byId.get(cmp[0])?.name}</b>: check one more company</>
+                    : <><b>{byId.get(cmp[0])?.name}</b> vs <b>{byId.get(cmp[1])?.name}</b></>}
+                </span>
+                <span className="row" style={{ gap: 6, flexWrap: "nowrap" }}>
+                  <button className="linkbtn" onClick={() => setCmp([])}>Clear</button>
+                  <button className="btn primary" disabled={cmp.length < 2} onClick={() => setShowCmp(true)}>Compare</button>
+                </span>
+              </div>
+            )}
           </aside>
         </div>
       )}

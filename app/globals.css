@@ -267,6 +267,17 @@ a { color: var(--accent); }
 .reach-btn { display: inline-block; border: 1px solid var(--border); border-radius: 999px; padding: 5px 11px; font-size: 13px; color: var(--accent); text-decoration: none; background: var(--panel); }
 .reach-btn:hover { border-color: var(--accent); }
 
+/* Compare two companies */
+.cmpbox { display: inline-flex; align-items: center; margin-right: 6px; vertical-align: -2px; cursor: pointer; }
+.cmpbox input { margin: 0; cursor: pointer; accent-color: var(--accent); }
+.cmpbar { position: sticky; bottom: 0; display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 14px; background: var(--panel); border-top: 1px solid var(--border); box-shadow: 0 -4px 12px rgba(0,0,0,.06); }
+.modal.cmp { width: min(760px, 96vw); max-height: 92vh; overflow: auto; }
+.cmptable { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 13.5px; table-layout: fixed; }
+.cmptable th { text-align: left; font-size: 15px; padding: 8px; border-bottom: 2px solid var(--border); }
+.cmptable th:first-child, .cmptable td:first-child { width: 26%; }
+.cmptable td { padding: 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.cmptable td.win { background: var(--accent-soft); font-weight: 600; }
+
 @media (max-width: 760px) {
   .d-only { display: none !important; }
   .m-only { display: inline; }
@@ -320,4 +331,7 @@ a { color: var(--accent); }
   .savepop { width: min(300px, calc(100vw - 28px)); }
   .toast { bottom: 70px; max-width: 92vw; }
   .axisbar { gap: 8px; padding: 8px 10px; }
+  .modal.cmp { width: 100vw; max-height: 100dvh; border-radius: 0; }
+  .cmptable { font-size: 12.5px; }
+  .cmptable th:first-child, .cmptable td:first-child { width: 30%; }
 }
