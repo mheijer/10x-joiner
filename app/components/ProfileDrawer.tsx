@@ -311,19 +311,19 @@ export default function ProfileDrawer({
           <button className="btn ghost" style={{ marginTop: 6 }} onClick={resetWeights} disabled={isDefault}>Reset to default weights</button>
         </section>
 
-        {/* 4. Ranking */}
+        {/* 4. How For you is built (company vs. fit blend) */}
         <section>
-          <h3 className="sect">4. Your ranking</h3>
+          <h3 className="sect">4. How your For you score is built</h3>
           <p className="muted small">
             Your <b>For you</b> score mixes two things. <b>Company score</b> is the same for everyone: the average of
             "Will it win?" and "Is joining now a good deal?". <b>Fit to you</b> is personal: how well the company matches
             the roles, stage, size, location and pay you set above.
           </p>
-          <label className="title small">How much should your ranking weigh the company vs. your fit?</label>
+          <label className="title small">How much should your For you score weigh the company vs. your fit?</label>
           <div className="blendrow small">
-            <span>Company score <b>{Math.round(profile.blend * 100)}%</b></span>
-            <input className="range" type="range" min={0} max={100} step={5} value={Math.round(profile.blend * 100)} onChange={(e) => update({ blend: Number(e.target.value) / 100 })} />
             <span>Fit to you <b>{Math.round((1 - profile.blend) * 100)}%</b></span>
+            <input className="range" type="range" min={0} max={100} step={5} value={Math.round(profile.blend * 100)} onChange={(e) => update({ blend: Number(e.target.value) / 100 })} aria-label="Weight on company score" />
+            <span>Company score <b>{Math.round(profile.blend * 100)}%</b></span>
           </div>
           <p className="muted small">
             This changes only your For you scores (and so the list order when sorted by For you, and the map colors when
