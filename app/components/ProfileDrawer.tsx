@@ -167,9 +167,10 @@ export default function ProfileDrawer({
 
         {/* What the profile does, and how we read you */}
         <section className="profilewhat small">
-          <b>What your profile does:</b> it scores how well each company fits you (<b>Fit</b>) and ranks the list by{" "}
-          <b>For you</b> (company quality blended with your fit). It never hides a company: you still see all of them. To
-          narrow what you see, use the filters.
+          <b>What your profile does:</b> your preferences score how well each company fits you (<b>Fit</b>). Your
+          weights, once applied, change how much each dimension counts in <b>Probability of Winning</b> (the grades
+          themselves don't change). <b>For you</b> blends company quality with your fit. Your profile re-scores and
+          re-ranks companies but never hides one: to narrow the list, use the filters.
         </section>
         {profile.parsed?.summary && (
           <section className="readyou">
