@@ -33,6 +33,22 @@ a { color: var(--accent); }
 .list { border-left: 1px solid var(--border); }
 .center { position: relative; min-height: 0; }
 
+/* Collapsible filter panel (wide desktop only; smaller screens keep the stacked / bottom-bar layout) */
+.frail, .fcollapse { display: none; }
+@media (min-width: 1101px) {
+  .main { transition: grid-template-columns .18s ease; }
+  .fcollapse { display: inline; }
+  .main.fcollapsed { grid-template-columns: 44px 1fr 380px; }
+  .main.fcollapsed .filters { padding: 0; overflow: hidden; }
+  .main.fcollapsed .fbody { display: none; }
+  .main.fcollapsed .frail {
+    display: flex; flex-direction: column; align-items: center; gap: 12px;
+    width: 100%; height: 100%; padding: 14px 0; border: 0; background: none; cursor: pointer; color: var(--muted); font-size: 16px;
+  }
+  .frail:hover { color: var(--accent); }
+  .frail-label { writing-mode: vertical-rl; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+}
+
 .fgroup { margin-bottom: 16px; }
 .fgroup label.title { display: block; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin-bottom: 6px; }
 .fgroup input[type=text], .fgroup select, .fgroup input[type=number] { width: 100%; padding: 7px 9px; border: 1px solid var(--border); border-radius: 8px; background: #fff; }
