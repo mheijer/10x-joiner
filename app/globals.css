@@ -278,6 +278,12 @@ a { color: var(--accent); }
 .cmptable td { padding: 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
 .cmptable td.win { background: var(--accent-soft); font-weight: 600; }
 
+/* Profile drawer: what the profile does + how we read you */
+.profilewhat { background: #f7f7f4; border: 1px solid var(--border); border-radius: 8px; padding: 9px 11px; line-height: 1.45; }
+.readyou { background: var(--accent-soft); border-radius: 8px; padding: 10px 12px; }
+.readyou-t { font-weight: 600; font-size: 13px; margin-bottom: 2px; }
+.readyou p { margin: 0 0 4px; line-height: 1.45; }
+
 @media (max-width: 760px) {
   .d-only { display: none !important; }
   .m-only { display: inline; }

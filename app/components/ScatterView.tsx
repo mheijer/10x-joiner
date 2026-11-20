@@ -53,8 +53,38 @@ export default function ScatterView({
     .map((c) => ({ id: c.id, name: c.name, xr: x.get(c), yr: y.get(c), size: c.total_funding_usd ?? 0, color: scoreColor(colorOf(c)), raised: c.total_funding_usd }))
     .filter((p) => p.xr != null && p.yr != null)
     .map((p) => ({ ...p, x: (p.xr as number) + nudge(p.id, 7), y: (p.yr as number) + nudge(p.id, 13) }));
-  // Name only the standouts (highest on both axes); hover any dot for its name and scores.
-  const labeled = new Set([...points].sort((a, b) => (b.xr as number) + (b.yr as number) - ((a.xr as number) + (a.yr as number))).slice(0, 10).map((p) => p.id));
+  // Name only the standouts (highest on both axes); hover any dot for its name and scores. Points are ordered by
+  // standout-ness so labels are placed best-first (Recharts renders labels in data order).
+  points.sort((a, b) => (b.xr as number) + (b.yr as number) - ((a.xr as number) + (a.yr as number)));
+  const labeled = new Set(points.slice(0, 12).map((p) => p.id));
+  // Label placement without overlaps: each label takes the first free spot around its dot; if none is free it's
+  // skipped (hover still shows the name). Reset when the first label renders, so every chart redraw starts clean.
+  const placed: { x1: number; y1: number; x2: number; y2: number }[] = [];
+  const LABEL_H = 13;
+  const textW = (t: string) => t.length * 6.6 + 4;
+  const placeLabel = (cx: number, cy: number, r: number, name: string) => {
+    const w = textW(name);
+    const g = r + 3;
+    const spots: { x: number; y: number; anchor: "start" | "middle" | "end" }[] = [
+      { x: cx, y: cy - g - 2, anchor: "middle" }, // above
+      { x: cx, y: cy + g + LABEL_H - 1, anchor: "middle" }, // below
+      { x: cx + g + 2, y: cy + 4, anchor: "start" }, // right
+      { x: cx - g - 2, y: cy + 4, anchor: "end" }, // left
+      { x: cx + g, y: cy - g, anchor: "start" }, // upper right
+      { x: cx - g, y: cy - g, anchor: "end" }, // upper left
+      { x: cx + g, y: cy + g + LABEL_H - 2, anchor: "start" }, // lower right
+      { x: cx - g, y: cy + g + LABEL_H - 2, anchor: "end" }, // lower left
+    ];
+    for (const sp of spots) {
+      const x1 = sp.anchor === "start" ? sp.x : sp.anchor === "end" ? sp.x - w : sp.x - w / 2;
+      const box = { x1, y1: sp.y - LABEL_H + 2, x2: x1 + w, y2: sp.y + 3 };
+      if (box.y1 < 0 || box.x1 < 0) continue;
+      if (placed.some((b) => box.x1 < b.x2 && box.x2 > b.x1 && box.y1 < b.y2 && box.y2 > b.y1)) continue;
+      placed.push(box);
+      return sp;
+    }
+    return null;
+  };
 
   return (
     <div className="scatterwrap">
@@ -114,9 +144,13 @@ export default function ScatterView({
                   dataKey="name"
                   content={(props: any) => {
                     const pt = points[props.index];
+                    if (props.index === 0) placed.length = 0;
                     if (!pt || !labeled.has(pt.id)) return null;
+                    const r = (props.width ?? 0) / 2;
+                    const sp = placeLabel(props.x + r, props.y + r, r, pt.name);
+                    if (!sp) return null;
                     return (
-                      <text x={props.x + (props.width ?? 0) / 2} y={props.y - 4} textAnchor="middle" fontSize={11.5} fontWeight={600} fill="#1c1c1a" stroke="#ffffff" strokeWidth={3} paintOrder="stroke" style={{ pointerEvents: "none" }}>
+                      <text x={sp.x} y={sp.y} textAnchor={sp.anchor} fontSize={11.5} fontWeight={600} fill="#1c1c1a" stroke="#ffffff" strokeWidth={3} paintOrder="stroke" style={{ pointerEvents: "none" }}>
                         {pt.name}
                       </text>
                     );

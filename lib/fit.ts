@@ -23,7 +23,7 @@ export interface ParsedProfile {
   preset: keyof typeof WEIGHT_PRESETS;
   weights: Weights;
   weight_reasons: Partial<Record<keyof Weights, string>>;
-  summary: string; // one line: who this person is and what they want
+  summary: string; // 1-2 sentences, second person: background, what they want, what matters most
 }
 
 const SYSTEM = `You help HBS MBA students decide which startups to join, using LTV course frameworks.
@@ -37,7 +37,7 @@ const PROFILE_TOOL = {
   input_schema: {
     type: "object",
     properties: {
-      summary: { type: "string", description: "One line: who they are and what they want" },
+      summary: { type: "string", description: "1-2 sentences in the second person (\"You're a ...\") that play back who they are and what they want: background (roles, years, school), the role/stage/location/sector they're after, and what they care about most. Use only what they wrote; no flattery." },
       preferences: {
         type: "object",
         properties: {
