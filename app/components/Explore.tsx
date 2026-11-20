@@ -423,6 +423,11 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
                 Badge shows <b>{METRIC_LABEL[metric]}</b>{metric === "personal" ? " (your weights + fit)" : profile.weights_source !== "default" && metric === "composite" ? " (your weights)" : ""}
                 {ai && aiOrder && " · listed in AI best-match order"}
               </div>
+              {personalized && (
+                <div className="muted small" style={{ marginTop: 2 }}>
+                  Your profile re-ranks companies; it doesn't hide any. To narrow the list, use the filters.
+                </div>
+              )}
             </div>
             {sorted.length === 0 && (
               <div className="empty">

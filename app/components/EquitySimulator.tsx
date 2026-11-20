@@ -148,10 +148,29 @@ export default function EquitySimulator({
               <div className="note">Enter today's valuation to run the simulation.</div>
             ) : (
               <>
-                <div className="kpis four">
-                  <div className="kpi tckpi"><div className="v">{usd(r.totalCompPerYearUsd)}</div><div className="l">Total comp per year (salary + equity)</div></div>
-                  <div className="kpi"><div className="v">{usd(r.equityPerYearUsd)}</div><div className="l">Equity per year stayed</div></div>
-                  <div className="kpi"><div className="v">{usd(r.expectedValueUsd)}</div><div className="l">Equity over {s.yearsStay} yrs (probability-weighted)</div></div>
+                {(() => {
+                  const rocket = r.equity.scenarios.find((x) => x.label === "Rocketship");
+                  const base = r.equity.scenarios.find((x) => x.label === "Base");
+                  return (
+                    <div className="eqhero">
+                      <div className="eqhero-main">
+                        <div className="l">Your equity could be worth</div>
+                        <div className="v">{usd(rocket?.netValueUsd ?? 0)}</div>
+                        <div className="s">
+                          if {c.name} becomes a rocketship: a {usd(rocket?.exitValueUsd ?? 0)} exit ({Math.round((rocket?.probability ?? 0) * 100)}% odds), after
+                          dilution{s.instrument === "options" ? " and exercise cost" : ""}, for {s.yearsStay} year{s.yearsStay === 1 ? "" : "s"} of vesting
+                        </div>
+                      </div>
+                      <div className="eqhero-side">
+                        <div><span className="v2">{usd(base?.netValueUsd ?? 0)}</span><span className="l">in the base case ({usd(base?.exitValueUsd ?? 0)} exit)</span></div>
+                        <div><span className="v2">{usd(r.expectedValueUsd)}</span><span className="l">expected value, weighting every outcome by its odds</span></div>
+                      </div>
+                    </div>
+                  );
+                })()}
+                <div className="kpis">
+                  <div className="kpi tckpi"><div className="v">{usd(r.totalCompPerYearUsd)}</div><div className="l">Total comp per year (salary + expected equity)</div></div>
+                  <div className="kpi"><div className="v">{usd(r.equityPerYearUsd)}</div><div className="l">Expected equity per year stayed</div></div>
                   <div className="kpi"><div className="v">{usd(r.grantValueTodayUsd)}</div><div className="l">Full grant on paper today</div></div>
                 </div>
                 <div className="small" style={{ marginBottom: 8 }}>

@@ -364,6 +364,9 @@ export default function CompanyPanel({
               <>
                 <span className="tc"><b>≈ {usd(r.totalCompPerYearUsd)}/yr</b></span>
                 <span>{usd(est.sim.state.baseSalaryUsd)} salary + {usd(r.equityPerYearUsd)}/yr equity ({usd(r.expectedValueUsd)} over 4 years, probability-weighted)</span>
+                {r.equity.scenarios.find((x) => x.label === "Rocketship") && (
+                  <span>If {c.name} becomes a rocketship, your equity could be worth <b>{usd(r.equity.scenarios.find((x) => x.label === "Rocketship")!.netValueUsd)}</b></span>
+                )}
               </>
             ) : (
               <span>Enter a valuation to estimate the equity part</span>

@@ -165,6 +165,21 @@ export default function ProfileDrawer({
           )}
         </section>
 
+        {/* What the profile does, and how we read you */}
+        <section className="profilewhat small">
+          <b>What your profile does:</b> your preferences score how well each company fits you (<b>Fit</b>). Your
+          weights, once applied, change how much each dimension counts in <b>Probability of Winning</b> (the grades
+          themselves don't change). <b>For you</b> blends company quality with your fit. Your profile re-scores and
+          re-ranks companies but never hides one: to narrow the list, use the filters.
+        </section>
+        {profile.parsed?.summary && (
+          <section className="readyou">
+            <div className="readyou-t">How we read you</div>
+            <p>{profile.parsed.summary}</p>
+            <div className="muted small">Not quite right? Edit your text below and click "Read my profile again".</div>
+          </section>
+        )}
+
         {/* 1. About you */}
         <section>
           <h3 className="sect">1. About you</h3>
@@ -187,7 +202,7 @@ export default function ProfileDrawer({
             {!signedIn && status !== "connecting" && <span className="muted small">Needs your saved account (not connected)</span>}
           </div>
           {msg && <div className="note" style={{ marginTop: 8 }}>{msg}</div>}
-          {profile.parsed?.summary && <p className="small" style={{ marginTop: 8 }}><b>How we read you:</b> {profile.parsed.summary}</p>}
+          {profile.parsed?.summary && <p className="muted small" style={{ marginTop: 8 }}>Updated "How we read you" at the top of your profile.</p>}
         </section>
 
         {/* 2. Preferences */}
