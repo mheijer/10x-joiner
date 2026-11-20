@@ -61,7 +61,9 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
   const [stages, setStages] = useState<Bucket[]>([]);
   const [sizeMin, setSizeMin] = useState<string>("");
   const [sizeMax, setSizeMax] = useState<string>("");
-  const [metro, setMetro] = useState<string>("");
+  const [metroSel, setMetroSel] = useState<string[]>([]); // multi-select: any of these metros
+  const [allMetros, setAllMetros] = useState(false);
+  const toggleMetro = (m: string) => setMetroSel((x) => (x.includes(m) ? x.filter((y) => y !== m) : [...x, m]));
   const [minWin, setMinWin] = useState(0);
   const [minUp, setMinUp] = useState(0);
   const [dims, setDims] = useState<DimFilter[]>([]);
@@ -155,7 +157,7 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
       }
       if (lo != null && (c.headcount == null || c.headcount < lo)) return false;
       if (hi != null && (c.headcount == null || c.headcount > hi)) return false;
-      if (metro && metroOf(c.hq_city) !== metro) return false;
+      if (metroSel.length && !metroSel.includes(metroOf(c.hq_city) ?? "")) return false;
       if (minWin > 0 && (P(c)?.winning ?? c.composite ?? 0) < minWin) return false;
       if (minUp > 0 && (c.joiner_upside ?? 0) < minUp) return false;
       for (const d of dims) if ((c.scores?.[d.key]?.score ?? 0) < d.min) return false;
@@ -164,7 +166,7 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
       if (visaOnly && !(c.sponsors_visas === "yes" || c.sponsors_visas === "likely")) return false;
       return true;
     });
-  }, [companies, q, onlyEvaluated, scoreFiltersOn, stages, sizeMin, sizeMax, metro, minWin, minUp, dims, hideLowCoverage, hideFlagged, visaOnly, P, profile.red_flag_mode, ai, aiRank, activeList]);
+  }, [companies, q, onlyEvaluated, scoreFiltersOn, stages, sizeMin, sizeMax, metroSel, minWin, minUp, dims, hideLowCoverage, hideFlagged, visaOnly, P, profile.red_flag_mode, ai, aiRank, activeList]);
 
   const sorted = useMemo(() => {
     const arr = [...filtered];
@@ -193,14 +195,14 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
     return text ? companies.filter((c) => textMatch(c, text)).length : companies.length;
   }, [companies, q, ai]);
   const otherFiltersOn =
-    onlyEvaluated || stages.length > 0 || !!sizeMin || !!sizeMax || !!metro || minWin > 0 || minUp > 0 || dims.length > 0 ||
+    onlyEvaluated || stages.length > 0 || !!sizeMin || !!sizeMax || metroSel.length > 0 || minWin > 0 || minUp > 0 || dims.length > 0 ||
     hideLowCoverage || hideFlagged || visaOnly || profile.red_flag_mode === "hide" || !!listId;
   const clearOtherFilters = () => {
     setListId("");
-    setOnlyEvaluated(false); setStages([]); setSizeMin(""); setSizeMax(""); setMetro("");
+    setOnlyEvaluated(false); setStages([]); setSizeMin(""); setSizeMax(""); setMetroSel([]);
     setMinWin(0); setMinUp(0); setLastScoreFilter(null); setDims([]); setHideLowCoverage(false); setHideFlagged(false); setVisaOnly(false);
   };
-  const fitKey = ai ? `ai:${ai.q}` : q.trim().length >= 2 ? `q:${q.trim()}|${filtered.length}` : metro ? `m:${metro}` : "";
+  const fitKey = ai ? `ai:${ai.q}` : q.trim().length >= 2 ? `q:${q.trim()}|${filtered.length}` : metroSel.length ? `m:${metroSel.join("|")}` : "";
 
   const byId = useMemo(() => new Map(companies.map((c) => [c.id, c] as const)), [companies]);
   const selectedCompany = selected ? companies.find((c) => c.id === selected) ?? null : null;
@@ -214,7 +216,7 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
   const evaluatedCount = companies.filter((c) => c.composite != null).length;
   const toggleStage = (b: Bucket) => setStages((s) => (s.includes(b) ? s.filter((x) => x !== b) : [...s, b]));
   const reset = () => {
-    setQ(""); setAi(null); setAiError(null); setListId(""); setOnlyEvaluated(false); setStages([]); setSizeMin(""); setSizeMax(""); setMetro("");
+    setQ(""); setAi(null); setAiError(null); setListId(""); setOnlyEvaluated(false); setStages([]); setSizeMin(""); setSizeMax(""); setMetroSel([]);
     setMinWin(0); setMinUp(0); setLastScoreFilter(null); setDims([]); setHideLowCoverage(false); setHideFlagged(false); setVisaOnly(false);
   };
 
@@ -307,13 +309,20 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
             </div>
 
             <div className="fgroup">
-              <label className="title">Location</label>
-              <select value={metro} onChange={(e) => setMetro(e.target.value)}>
-                <option value="">Anywhere</option>
-                {metros.map(([m, n]) => (
-                  <option key={m} value={m}>{m} ({n})</option>
+              <label className="title">Location {metroSel.length > 0 && <button className="linkbtn small" onClick={() => setMetroSel([])}>clear</button>}</label>
+              <div className="chips">
+                {(allMetros ? metros : metros.filter(([m], i) => i < 8 || metroSel.includes(m))).map(([m, n]) => (
+                  <button key={m} className={`chip ${metroSel.includes(m) ? "on" : ""}`} onClick={() => toggleMetro(m)}>
+                    {m} <span className="muted">{n}</span>
+                  </button>
                 ))}
-              </select>
+              </div>
+              {metros.length > 8 && (
+                <button className="linkbtn small" style={{ marginTop: 4 }} onClick={() => setAllMetros((v) => !v)}>
+                  {allMetros ? "Show fewer" : `Show all ${metros.length} locations`}
+                </button>
+              )}
+              <div className="muted small" style={{ marginTop: 4 }}>{metroSel.length ? `Companies in any of the ${metroSel.length} selected` : "Anywhere. Pick one or more."}</div>
             </div>
 
             <div className="fgroup">
