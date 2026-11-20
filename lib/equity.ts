@@ -195,23 +195,26 @@ export function stageBucket(stage?: string | null, pmfScore?: number | null): St
 // Early-stage companies fail more often but have more room to run; late-stage companies are the reverse.
 // Expected company-value multiple: early ≈ 2.0x, mid ≈ 2.2x, late ≈ 1.6x. Illustrative defaults; users edit everything.
 export const SCENARIO_TABLE: Record<StageBucket, { label: string; multiple: number; probability: number }[]> = {
+  // Rocketship = a category winner (Nov 20, raised from 20x / 10x / 4x, which undersold the upside the list is about):
+  // early (~$30-100M today) → a multi-billion exit; mid (~$0.5-2B) → $10-40B; late (~$5B+) → $30B+.
+  // These are judgment calls for orientation, not market data; users can edit every outcome.
   early: [
     { label: "Bust", multiple: 0, probability: 0.55 },
     { label: "Modest", multiple: 1, probability: 0.25 },
-    { label: "Base", multiple: 4, probability: 0.14 },
-    { label: "Rocketship", multiple: 20, probability: 0.06 },
+    { label: "Base", multiple: 5, probability: 0.14 },
+    { label: "Rocketship", multiple: 50, probability: 0.06 },
   ],
   mid: [
     { label: "Bust", multiple: 0, probability: 0.3 },
     { label: "Modest", multiple: 1, probability: 0.3 },
     { label: "Base", multiple: 3, probability: 0.3 },
-    { label: "Rocketship", multiple: 10, probability: 0.1 },
+    { label: "Rocketship", multiple: 20, probability: 0.1 },
   ],
   late: [
     { label: "Bust", multiple: 0, probability: 0.1 },
     { label: "Modest", multiple: 0.8, probability: 0.35 },
     { label: "Base", multiple: 2, probability: 0.43 },
-    { label: "Rocketship", multiple: 4, probability: 0.12 },
+    { label: "Rocketship", multiple: 6, probability: 0.12 },
   ],
 };
 

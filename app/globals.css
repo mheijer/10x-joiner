@@ -284,6 +284,15 @@ a { color: var(--accent); }
 .readyou-t { font-weight: 600; font-size: 13px; margin-bottom: 2px; }
 .readyou p { margin: 0 0 4px; line-height: 1.45; }
 
+/* Equity simulator: the headline "your equity could be worth" */
+.eqhero { display: grid; grid-template-columns: 1.3fr 1fr; gap: 10px; margin: 12px 0; border: 1px solid #86efac; background: #f0fdf4; border-radius: 10px; padding: 12px 14px; }
+.eqhero-main .l { font-size: 12.5px; font-weight: 600; color: #166534; text-transform: uppercase; letter-spacing: .03em; }
+.eqhero-main .v { font-size: 34px; font-weight: 700; color: #14532d; line-height: 1.15; }
+.eqhero-main .s { font-size: 12.5px; color: var(--muted); }
+.eqhero-side { display: grid; gap: 8px; align-content: center; border-left: 1px solid #bbf7d0; padding-left: 12px; }
+.eqhero-side .v2 { display: block; font-size: 19px; font-weight: 650; }
+.eqhero-side .l { font-size: 12px; color: var(--muted); }
+
 @media (max-width: 760px) {
   .d-only { display: none !important; }
   .m-only { display: inline; }
@@ -340,4 +349,6 @@ a { color: var(--accent); }
   .modal.cmp { width: 100vw; max-height: 100dvh; border-radius: 0; }
   .cmptable { font-size: 12.5px; }
   .cmptable th:first-child, .cmptable td:first-child { width: 30%; }
+  .eqhero { grid-template-columns: 1fr; }
+  .eqhero-side { border-left: none; padding-left: 0; border-top: 1px solid #bbf7d0; padding-top: 8px; }
 }
