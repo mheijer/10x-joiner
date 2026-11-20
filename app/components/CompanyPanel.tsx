@@ -23,6 +23,7 @@ import EquitySimulator from "./EquitySimulator";
 import SaveToList from "./SaveToList";
 import type { SavedList } from "@/lib/lists";
 import { alumniSearches } from "@/lib/linkedin";
+import { interviewQuestions } from "@/lib/interview";
 
 type Tab = "overview" | "scorecard" | "equity" | "hiring";
 type Dim = (typeof DIMENSIONS)[number];
@@ -555,9 +556,35 @@ export default function CompanyPanel({
             </div>
           )}
           {c.careers_url && <p className="small"><a href={c.careers_url} target="_blank" rel="noreferrer">See all roles on {c.name}'s careers page →</a></p>}
+          {evaluated && <InterviewQs c={c} profile={profile} onOpenProfile={onOpenProfile} />}
           <ReachOut c={c} schools={effectivePreferences(profile).schools ?? []} onOpenProfile={onOpenProfile} />
         </div>
       )}
+    </div>
+  );
+}
+
+/** Three pointed questions for the interview: the company's biggest gaps (ranked by the user's weights) and the role. */
+function InterviewQs({ c, profile, onOpenProfile }: { c: CompanyRow; profile: ProfileState; onOpenProfile?: () => void }) {
+  const prefs = effectivePreferences(profile);
+  const labels = Object.fromEntries(DIMENSIONS.map((d) => [d.key, shortLabel(d.key)]));
+  const qs = interviewQuestions(c as any, { weights: activeWeights(profile) as any, labels, targetFunctions: prefs.target_functions ?? [] });
+  if (!qs.length) return null;
+  return (
+    <div className="reach">
+      <h3 className="sect">Questions to ask in your interview</h3>
+      <ol className="iqs">
+        {qs.map((x) => (
+          <li key={x.q}>
+            <div>{x.q}</div>
+            <div className="muted small">{x.why} · <i>{x.concept}</i></div>
+          </li>
+        ))}
+      </ol>
+      <div className="muted small">
+        Picked from {c.name}'s weakest grades, ranked by your weights{prefs.target_functions?.length ? ", plus your target role" : ""}.
+        {!prefs.target_functions?.length && onOpenProfile && <> <button className="linkbtn" onClick={onOpenProfile}>Set a target role</button> for a role-specific question.</>}
+      </div>
     </div>
   );
 }

@@ -14,6 +14,7 @@ Read `PRD.md` before building any feature. It defines the user (HBS joiners), th
 - `lib/hiring.ts`: hiring profile (roles by function, hiring focus, posted salary bands). Pure.
 - `lib/equity.ts`: pure equity estimator and `estimatePackage` (grant estimate from financials + posted salary). `lib/jobs.ts`: Greenhouse/Lever/Ashby public boards. `lib/geocode.ts`: HQ → lat/lng.
 - `lib/linkedin.ts`: "Who to reach out to": LinkedIn keyword searches ("<company> Harvard", then the user's own schools). Pure; no IDs, no lookups; we never scrape LinkedIn.
+- `lib/interview.ts`: "Questions to ask in your interview": 3 questions per company from a fixed bank tied to LTV frameworks; the company's lowest grades ranked by the user's weights, plus one for their target role. Pure, free, no AI.
 - `lib/simulator.ts`: equity simulator (editable offer, valuation, rounds, exit odds, vesting → stake, financing path, payout per outcome, break-even). Pure.
 - `lib/search.ts`: AI search (server-only): one Haiku call per question over a compact catalog; it only picks from the catalog.
 - `lib/claude.ts`, `lib/evaluate.ts`, `lib/fit.ts`, `lib/search.ts`: Claude API calls (server-only). `lib/supabase-admin.ts`: service-role client (server-only).
