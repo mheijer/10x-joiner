@@ -72,6 +72,7 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
   const [hideFlagged, setHideFlagged] = useState(false);
   const [visaOnly, setVisaOnly] = useState(false);
   const [listId, setListId] = useState<string>(""); // "" = all companies
+  const [listsOpen, setListsOpen] = useState(false); // "My lists" menu in the top bar
   const [cmp, setCmp] = useState<string[]>([]); // up to two company ids checked for comparison
   const [showCmp, setShowCmp] = useState(false);
   const toggleCmp = (id: string) => setCmp((x) => (x.includes(id) ? x.filter((y) => y !== id) : x.length >= 2 ? x : [...x, id]));
@@ -232,6 +233,30 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
         <div className="spacer" />
         <div className="muted small d-only">
           {companies.length} companies · {evaluatedCount} scored · <span title="A representative random sample of 100 of the 556 US companies on the Rocketship List 2026 (matched on region, founding year and sector), 15 well-known late-stage companies added on top, and companies users added. Public and acquired companies are left out.">Rocketship List 2026 (US): 100-company sample + 15 late-stage picks</span>
+        </div>
+        <div className="listsmenu-wrap">
+          <button className={`btn ${listId ? "on" : ""}`} onClick={() => setListsOpen((v) => !v)} aria-expanded={listsOpen} title="Your saved lists">
+            <span className="d-only">★ My lists{(profile.lists ?? []).length ? ` (${(profile.lists ?? []).length})` : ""}</span>
+            <span className="m-only">★</span>
+          </button>
+          {listsOpen && (
+            <div className="listsmenu" onMouseLeave={() => setListsOpen(false)}>
+              {(profile.lists ?? []).length === 0 ? (
+                <div className="muted small" style={{ padding: "8px 10px" }}>
+                  No lists yet. Open a company and click <b>☆ Save to a list</b> to start one.
+                </div>
+              ) : (
+                <>
+                  <button className={`listsmenu-item ${!listId ? "on" : ""}`} onClick={() => { setListId(""); setListsOpen(false); }}>All companies</button>
+                  {(profile.lists ?? []).map((l) => (
+                    <button key={l.id} className={`listsmenu-item ${listId === l.id ? "on" : ""}`} onClick={() => { setListId(l.id); setListsOpen(false); setMview("list"); }}>
+                      ★ {l.name} <span className="muted">{l.company_ids.length}</span>
+                    </button>
+                  ))}
+                </>
+              )}
+            </div>
+          )}
         </div>
         <button className="btn" onClick={() => setShowAdd(true)} title="Research and score a company that isn't on the list">
           <span className="d-only">+ Add a company</span><span className="m-only">+ Add</span>
@@ -441,6 +466,12 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
 
           <aside className="list">
             <div className="listhead">
+              {activeList && (
+                <div className="listbanner">
+                  <span>★ Your list: <b>{activeList.name}</b> ({activeList.company_ids.length})</span>
+                  <button className="linkbtn" onClick={() => setListId("")}>Show all companies ✕</button>
+                </div>
+              )}
               <div className="row" style={{ justifyContent: "space-between", flexWrap: "nowrap" }}>
                 <strong className="count">{sorted.length.toLocaleString()} {sorted.length === 1 ? "company" : "companies"}</strong>
                 <select className="sortsel" value={sort} onChange={(e) => { sortTouched.current = true; setAiOrder(false); setSort(e.target.value as SortKey); }}>

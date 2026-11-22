@@ -304,6 +304,15 @@ a { color: var(--accent); }
 .locmenu li { padding: 6px 10px; cursor: pointer; display: flex; justify-content: space-between; font-size: 13.5px; }
 .locmenu li:hover { background: var(--accent-soft); }
 
+/* "My lists" menu (top bar) and the banner when a list is shown */
+.listsmenu-wrap { position: relative; }
+.btn.on { border-color: var(--accent); color: var(--accent); }
+.listsmenu { position: absolute; right: 0; top: calc(100% + 4px); z-index: 50; min-width: 220px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 8px 22px rgba(0,0,0,.1); padding: 4px 0; }
+.listsmenu-item { display: flex; justify-content: space-between; gap: 10px; width: 100%; text-align: left; background: none; border: 0; padding: 7px 12px; font-size: 13.5px; cursor: pointer; }
+.listsmenu-item:hover { background: var(--accent-soft); }
+.listsmenu-item.on { font-weight: 600; color: var(--accent); }
+.listbanner { display: flex; justify-content: space-between; align-items: center; gap: 8px; background: var(--accent-soft); border-radius: 6px; padding: 6px 10px; margin-bottom: 8px; font-size: 13px; }
+
 @media (max-width: 760px) {
   .d-only { display: none !important; }
   .m-only { display: inline; }
