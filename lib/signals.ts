@@ -87,8 +87,11 @@ export async function appStoreSignal(name: string, domain?: string | null): Prom
 }
 
 /** GitHub org stars and recent activity (dev tools / open source). */
-export async function githubSignal(orgGuess: string): Promise<Signal | null> {
+export async function githubSignal(orgGuess: string, domain?: string | null): Promise<Signal | null> {
   const headers: Record<string, string> = process.env.GITHUB_TOKEN ? { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` } : {};
+  // Only count an org that links back to the company's website (an org named "ramp" may be someone else's).
+  const org = await getJson(`https://api.github.com/orgs/${orgGuess}`, headers);
+  if (!org || !linksTo(domain, [org.blog])) return null;
   const repos = await getJson(`https://api.github.com/orgs/${orgGuess}/repos?per_page=100&sort=pushed`, headers);
   if (!Array.isArray(repos) || repos.length === 0) return null;
   const stars = repos.reduce((a: number, r: any) => a + (r.stargazers_count ?? 0), 0);
@@ -103,8 +106,38 @@ export async function githubSignal(orgGuess: string): Promise<Signal | null> {
   };
 }
 
-/** Monthly npm downloads for a package name (dev tools with JS SDKs). */
-export async function npmSignal(pkg: string): Promise<Signal | null> {
+/** The registrable domain: "home.nuancelabs.ai" → "nuancelabs.ai", "app.acme.co.uk" → "acme.co.uk". Pure. */
+export function rootDomain(domain?: string | null): string | null {
+  if (!domain) return null;
+  const host = domain.toLowerCase().replace(/^https?:\/\//, "").split(/[/?#]/)[0].replace(/^www\./, "");
+  const parts = host.split(".").filter(Boolean);
+  if (parts.length <= 2) return parts.join(".") || null;
+  const twoPartTld = /^(co|com|org|net|ac|gov|edu)$/.test(parts[parts.length - 2]) && parts[parts.length - 1].length === 2;
+  return parts.slice(twoPartTld ? -3 : -2).join(".");
+}
+
+/** The name to guess package and org names from: the domain's main label ("nuancelabs"), else the company name. Pure. */
+export function slugFor(name: string, domain?: string | null): string {
+  const root = rootDomain(domain);
+  return (root ? root.split(".")[0] : name.toLowerCase()).replace(/[^a-z0-9-]/g, "");
+}
+
+/** True when any of these URLs points at the company's own domain. With no domain to check, nothing counts. Pure. */
+export function linksTo(domain: string | null | undefined, urls: unknown[]): boolean {
+  const root = rootDomain(domain);
+  if (!root) return false;
+  return urls.some((u) => {
+    if (typeof u !== "string" || !u) return false;
+    const r = rootDomain(u);
+    return r === root;
+  });
+}
+
+/** Monthly npm downloads for a package name (dev tools with JS SDKs). Only counted if the package links back to the company. */
+export async function npmSignal(pkg: string, domain?: string | null): Promise<Signal | null> {
+  const meta = await getJson(`https://registry.npmjs.org/${encodeURIComponent(pkg)}/latest`);
+  const repo = typeof meta?.repository === "string" ? meta.repository : meta?.repository?.url;
+  if (!meta || !linksTo(domain, [meta.homepage, repo, meta.bugs?.url, meta.author?.url])) return null;
   const j = await getJson(`https://api.npmjs.org/downloads/point/last-month/${encodeURIComponent(pkg)}`);
   if (!j?.downloads || j.downloads < 1000) return null;
   return {
@@ -117,7 +150,10 @@ export async function npmSignal(pkg: string): Promise<Signal | null> {
 }
 
 /** Monthly PyPI downloads (dev tools with Python SDKs). */
-export async function pypiSignal(pkg: string): Promise<Signal | null> {
+export async function pypiSignal(pkg: string, domain?: string | null): Promise<Signal | null> {
+  const meta = await getJson(`https://pypi.org/pypi/${encodeURIComponent(pkg)}/json`);
+  const info = meta?.info ?? {};
+  if (!linksTo(domain, [info.home_page, info.project_url, ...Object.values(info.project_urls ?? {})])) return null;
   const j = await getJson(`https://pypistats.org/api/packages/${encodeURIComponent(pkg)}/recent`);
   const n = j?.data?.last_month;
   if (!n || n < 1000) return null;
@@ -300,11 +336,11 @@ export async function collectSignals(opts: {
   jobsByFunction?: Partial<Record<JobFunction, number>>;
   jobBoardUrl?: string;
 }): Promise<Signal[]> {
-  const slug = (opts.domain ?? opts.name).toLowerCase().replace(/^www\./, "").split(".")[0].replace(/[^a-z0-9-]/g, "");
+  const slug = slugFor(opts.name, opts.domain);
   const domain = opts.domain?.toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0] ?? null;
   const tasks: Promise<Signal | null>[] = [hackerNewsSignal(opts.name, domain)];
   if (opts.isConsumer !== false) tasks.push(appStoreSignal(opts.name, domain));
-  if (opts.isDevTool !== false) tasks.push(githubSignal(slug), npmSignal(slug), pypiSignal(slug));
+  if (opts.isDevTool !== false) tasks.push(githubSignal(slug, domain), npmSignal(slug, domain), pypiSignal(slug, domain));
   tasks.push(secFormDSignal(opts.name).catch(() => null));
   if (isHealth(opts.sector)) tasks.push(fdaSignal(opts.name).catch(() => null), clinicalTrialsSignal(opts.name).catch(() => null));
   const found = (await Promise.all(tasks)).filter((s): s is Signal => !!s);
