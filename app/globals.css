@@ -297,6 +297,13 @@ a { color: var(--accent); }
 .iqs { margin: 8px 0; padding-left: 20px; display: grid; gap: 8px; }
 .iqs li > div:first-child { font-weight: 550; line-height: 1.4; }
 
+/* Location filter: search with suggestions */
+.locsearch { position: relative; }
+.locsearch input { width: 100%; }
+.locmenu { position: absolute; z-index: 30; left: 0; right: 0; top: calc(100% + 2px); margin: 0; padding: 4px 0; list-style: none; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 6px 18px rgba(0,0,0,.08); max-height: 240px; overflow: auto; }
+.locmenu li { padding: 6px 10px; cursor: pointer; display: flex; justify-content: space-between; font-size: 13.5px; }
+.locmenu li:hover { background: var(--accent-soft); }
+
 @media (max-width: 760px) {
   .d-only { display: none !important; }
   .m-only { display: inline; }
