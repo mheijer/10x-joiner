@@ -62,7 +62,8 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
   const [sizeMin, setSizeMin] = useState<string>("");
   const [sizeMax, setSizeMax] = useState<string>("");
   const [metroSel, setMetroSel] = useState<string[]>([]); // multi-select: any of these metros
-  const [allMetros, setAllMetros] = useState(false);
+  const [locQ, setLocQ] = useState(""); // location search box
+  const [locOpen, setLocOpen] = useState(false);
   const toggleMetro = (m: string) => setMetroSel((x) => (x.includes(m) ? x.filter((y) => y !== m) : [...x, m]));
   const [minWin, setMinWin] = useState(0);
   const [minUp, setMinUp] = useState(0);
@@ -310,19 +311,41 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
 
             <div className="fgroup">
               <label className="title">Location {metroSel.length > 0 && <button className="linkbtn small" onClick={() => setMetroSel([])}>clear</button>}</label>
-              <div className="chips">
-                {(allMetros ? metros : metros.filter(([m], i) => i < 8 || metroSel.includes(m))).map(([m, n]) => (
-                  <button key={m} className={`chip ${metroSel.includes(m) ? "on" : ""}`} onClick={() => toggleMetro(m)}>
-                    {m} <span className="muted">{n}</span>
-                  </button>
-                ))}
-              </div>
-              {metros.length > 8 && (
-                <button className="linkbtn small" style={{ marginTop: 4 }} onClick={() => setAllMetros((v) => !v)}>
-                  {allMetros ? "Show fewer" : `Show all ${metros.length} locations`}
-                </button>
+              {(() => {
+                const matches = metros.filter(([m]) => !metroSel.includes(m) && m.toLowerCase().includes(locQ.trim().toLowerCase())).slice(0, 8);
+                const pick = (m: string) => { toggleMetro(m); setLocQ(""); };
+                return (
+                  <div className="locsearch">
+                    <input
+                      value={locQ}
+                      placeholder={metroSel.length ? "Add another city…" : "Search a city (e.g. Boston)"}
+                      onChange={(e) => { setLocQ(e.target.value); setLocOpen(true); }}
+                      onFocus={() => setLocOpen(true)}
+                      onBlur={() => setTimeout(() => setLocOpen(false), 150)}
+                      onKeyDown={(e) => { if (e.key === "Enter" && matches[0]) { e.preventDefault(); pick(matches[0][0]); } if (e.key === "Escape") setLocOpen(false); }}
+                      aria-label="Search locations"
+                    />
+                    {locOpen && matches.length > 0 && (
+                      <ul className="locmenu" role="listbox">
+                        {matches.map(([m, n]) => (
+                          <li key={m} role="option" aria-selected={false} onMouseDown={(e) => { e.preventDefault(); pick(m); }}>
+                            {m} <span className="muted">{n}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                );
+              })()}
+              {metroSel.length > 0 ? (
+                <div className="chips" style={{ marginTop: 6 }}>
+                  {metroSel.map((m) => (
+                    <button key={m} className="chip on" onClick={() => toggleMetro(m)} title="Remove">{m} ✕</button>
+                  ))}
+                </div>
+              ) : (
+                <div className="muted small" style={{ marginTop: 4 }}>Anywhere. Search to pick one or more cities.</div>
               )}
-              <div className="muted small" style={{ marginTop: 4 }}>{metroSel.length ? `Companies in any of the ${metroSel.length} selected` : "Anywhere. Pick one or more."}</div>
             </div>
 
             <div className="fgroup">
