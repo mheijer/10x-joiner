@@ -56,6 +56,20 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
   useEffect(() => {
     if (mview === "map") requestAnimationFrame(() => window.dispatchEvent(new Event("resize")));
   }, [mview, view]);
+  // Desktop only: the filter panel can fold into a thin rail. The choice is remembered in this browser.
+  const [filtersOpen, setFiltersOpen] = useState(true);
+  useEffect(() => {
+    try { if (localStorage.getItem("filtersOpen") === "0") setFiltersOpen(false); } catch {}
+  }, []);
+  const toggleFilters = () =>
+    setFiltersOpen((o) => {
+      try { localStorage.setItem("filtersOpen", o ? "0" : "1"); } catch {}
+      return !o;
+    });
+  // The map needs a resize nudge once the column width changes.
+  useEffect(() => {
+    requestAnimationFrame(() => window.dispatchEvent(new Event("resize")));
+  }, [filtersOpen]);
   const [q, setQ] = useState("");
   const [onlyEvaluated, setOnlyEvaluated] = useState(false);
   const [stages, setStages] = useState<Bucket[]>([]);
@@ -272,11 +286,20 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
           Couldn't load companies: {loadError}. Check the Supabase environment variables.
         </div>
       ) : (
-        <div className={`main m-${mview} ${selectedCompany || showProfile || showAdd ? "m-overlay" : ""}`}>
+        <div className={`main m-${mview} ${selectedCompany || showProfile || showAdd ? "m-overlay" : ""} ${filtersOpen ? "" : "fcollapsed"}`}>
           <aside className="filters">
+            {/* Rail shown instead of the panel when collapsed (desktop only) */}
+            <button className="frail" onClick={toggleFilters} aria-label="Show filters" aria-expanded={false} title="Show filters">
+              <span>»</span>
+              <span className="frail-label">Filters{otherFiltersOn ? " •" : ""}</span>
+            </button>
+            <div className="fbody">
             <div className="row" style={{ justifyContent: "space-between", marginBottom: 10 }}>
               <strong>Filters</strong>
-              <button className="linkbtn" onClick={reset}>Reset</button>
+              <span className="row" style={{ gap: 8 }}>
+                <button className="linkbtn" onClick={reset}>Reset</button>
+                <button className="linkbtn fcollapse" onClick={toggleFilters} aria-label="Hide filters" aria-expanded={true} title="Hide filters">«</button>
+              </span>
             </div>
 
             {(profile.lists ?? []).length > 0 && (
@@ -421,6 +444,7 @@ export default function Explore({ companies, loadError }: { companies: CompanyRo
               <label className="row small"><input type="checkbox" checked={hideLowCoverage} onChange={(e) => setHideLowCoverage(e.target.checked)} /> Hide low data coverage</label>
               <label className="row small"><input type="checkbox" checked={hideFlagged} onChange={(e) => setHideFlagged(e.target.checked)} /> Hide medium/high red flags</label>
               <label className="row small"><input type="checkbox" checked={visaOnly} onChange={(e) => setVisaOnly(e.target.checked)} /> Sponsors visas</label>
+            </div>
             </div>
           </aside>
 
